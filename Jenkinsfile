@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.9-slim'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -u root --privileged'
+            reuseNode true
+        }
+    }
     
     environment {
         // Use a consistent Python version
@@ -9,6 +15,9 @@ pipeline {
         COVERAGE_REPORT = 'coverage-report'
         // Base URL for the application
         BASE_URL = 'https://parabank.parasoft.com/parabank/index.htm'
+        // Docker settings
+        DOCKER_HOST = 'unix:///var/run/docker.sock'
+        DOCKER_BUILDKIT = '1'
     }
     
     stages {
@@ -16,32 +25,51 @@ pipeline {
             steps {
                 echo 'Setting up environment...'
                 sh '''#!/bin/bash -l
-                    # Install Python if not present
-                    if ! command -v python3 &> /dev/null; then
-                        echo "Installing Python..."
-                        apt-get update && apt-get install -y python3 python3-pip python3-venv
-                    fi
+                    # Update and install system dependencies
+                    apt-get update && apt-get install -y --no-install-recommends \
+                        python3 \
+                        python3-pip \
+                        python3-venv \
+                        libnss3 \
+                        libnspr4 \
+                        libatk1.0-0 \
+                        libatk-bridge2.0-0 \
+                        libcups2 \
+                        libdrm2 \
+                        libxkbcommon0 \
+                        libxcomposite1 \
+                        libxdamage1 \
+                        libxfixes3 \
+                        libxrandr2 \
+                        libgbm1 \
+                        libasound2 \
+                        libatspi2.0-0 \
+                        libx11-xcb1 \
+                        xvfb \
+                        && rm -rf /var/lib/apt/lists/*
                     
                     # Create and activate virtual environment
                     python3 -m venv venv
                     source venv/bin/activate
                     
-                    # Upgrade pip and install requirements
+                    # Upgrade pip and install Python dependencies
                     pip install --upgrade pip
                     pip install -r requirements.txt
                     
                     # Install Playwright and browsers
                     pip install playwright
-                    playwright install
-                    playwright install-deps
+                    playwright install --with-deps
                     
                     # Create test directories
                     mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
                     
                     # Verify installations
+                    echo "=== Environment Setup Complete ==="
                     echo "Python: $(python3 --version)"
                     echo "Pip: $(pip --version)"
-                    echo "Playwright: $(playwright --version)"'''
+                    echo "Playwright: $(playwright --version)"
+                    echo "Docker: $(docker --version)"
+                    echo "Docker Compose: $(docker-compose --version)"'''
             }
         }
         
