@@ -6,8 +6,8 @@ pipeline {
         TEST_RESULTS = 'test-results'
         COVERAGE_REPORT = 'coverage-report'
         
-        // Docker compose project name
-        COMPOSE_PROJECT_NAME = 'para-bank-ui-automation'
+        // Base URL for the application
+        BASE_URL = 'https://parabank.parasoft.com/parabank/index.htm'
     }
     
     stages {
