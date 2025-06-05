@@ -1,12 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            // Use the app service defined in docker-compose
-            reuseNode true
-            image 'para-bank-ui-automation_app'
-            args '-u root --network=para-bank-ui-automation_monitoring'
-        }
-    }
+    agent any
     
     environment {
         // Test results and reports directory
