@@ -1,16 +1,12 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.9-slim'
-            args '-u root --network=host'
-        }
-    }
+    agent any
     
     environment {
+        // Use a consistent Python version
+        PYTHONUNBUFFERED = '1'
         // Test results and reports directory
         TEST_RESULTS = 'test-results'
         COVERAGE_REPORT = 'coverage-report'
-        
         // Base URL for the application
         BASE_URL = 'https://parabank.parasoft.com/parabank/index.htm'
     }
@@ -19,46 +15,33 @@ pipeline {
         stage('Setup') {
             steps {
                 echo 'Setting up environment...'
-                sh '''
-                    # Update package lists and install system dependencies
-                    apt-get update && apt-get install -y --no-install-recommends \
-                        curl \
-                        git \
-                        wget \
-                        unzip \
-                        xvfb \
-                        libnss3 \
-                        libnspr4 \
-                        libatk1.0-0 \
-                        libatk-bridge2.0-0 \
-                        libcups2 \
-                        libdrm2 \
-                        libxkbcommon0 \
-                        libxcomposite1 \
-                        libxdamage1 \
-                        libxfixes3 \
-                        libxrandr2 \
-                        libgbm1 \
-                        libasound2 \
-                        libatspi2.0-0 \
-                        libx11-xcb1
-
-                    # Create test results directory
-                    mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
+                sh '''#!/bin/bash -l
+                    # Install Python if not present
+                    if ! command -v python3 &> /dev/null; then
+                        echo "Installing Python..."
+                        apt-get update && apt-get install -y python3 python3-pip python3-venv
+                    fi
                     
-                    # Install Python dependencies
+                    # Create and activate virtual environment
+                    python3 -m venv venv
+                    source venv/bin/activate
+                    
+                    # Upgrade pip and install requirements
                     pip install --upgrade pip
                     pip install -r requirements.txt
                     
-                    # Install Playwright browsers
-                    playwright install --with-deps
+                    # Install Playwright and browsers
+                    pip install playwright
+                    playwright install
                     playwright install-deps
-                    pip install pytest-cov pylint black
                     
-                    # Install Playwright browsers
-                    playwright install --with-deps chromium
+                    # Create test directories
+                    mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
                     
-                '''
+                    # Verify installations
+                    echo "Python: $(python3 --version)"
+                    echo "Pip: $(pip --version)"
+                    echo "Playwright: $(playwright --version)"'''
             }
         }
         
@@ -88,21 +71,29 @@ pipeline {
             
             steps {
                 echo 'Running tests...'
-                sh '''
+                sh '''#!/bin/bash -l
+                    # Activate virtual environment
+                    source venv/bin/activate
+                    
                     # Start Xvfb for headless browser testing
                     Xvfb :99 -screen 0 1024x768x16 &
                     
-                    # Run tests with coverage and generate JUnit XML report
-                    python -m pytest \
-                        --base-url=${BASE_URL} \
+                    # Run tests with coverage
+                    set +e  # Don't fail immediately if tests fail
+                    python -m pytest tests/ \
                         --junitxml=${TEST_RESULTS}/junit.xml \
                         --cov=. \
-                        --cov-report=xml:${TEST_RESULTS}/coverage.xml \
-                        --cov-report=html:${COVERAGE_REPORT} \
-                        -v tests/
+                        --cov-report=xml:${COVERAGE_REPORT}/coverage.xml \
+                        --cov-report=html:${COVERAGE_REPORT}/
                     
-                    # Generate HTML report for test results
-                    python -m junit2html ${TEST_RESULTS}/junit.xml ${TEST_RESULTS}/test-report.html
+                    # Capture the exit code
+                    TEST_EXIT_CODE=$?
+                    
+                    # Generate HTML report
+                    python -m pytest tests/ --html=${TEST_RESULTS}/report.html --self-contained-html || true
+                    
+                    # Exit with the test status
+                    exit $TEST_EXIT_CODE
                 '''
             }
             
@@ -166,41 +157,37 @@ pipeline {
     post {
         always {
             echo 'Pipeline completed.'
-            // Clean up any resources if needed
-            sh '''
-                # Kill Xvfb if it's still running
-                pkill -f Xvfb || true
-            '''
             
-            // Send notification
+            // Clean up Xvfb process
+            sh 'pkill -f Xvfb || true'
+            
+            // Publish test results and coverage
             script {
-                def buildStatus = currentBuild.currentResult
-                def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-                def details = """
-                    <p>${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
-                    <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
-                    <p>Test Results: <a href='${env.BUILD_URL}testReport/'>Test Report</a></p>
-                    <p>Coverage Report: <a href='${env.BUILD_URL}Coverage_20Report/'>Coverage Report</a></p>
-                """
+                // Publish JUnit test results
+                junit allowEmptyResults: true, testResults: 'test-results/junit.xml'
                 
-                if (buildStatus == 'SUCCESS') {
-                    emailext (
-                        subject: subject,
-                        body: details,
-                        to: 'your-email@example.com',
-                        recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-                    )
-                } else {
-                    emailext (
-                        subject: subject,
-                        body: details,
-                        to: 'your-email@example.com',
-                        recipientProviders: [
-                            [$class: 'DevelopersRecipientProvider'],
-                            [$class: 'RequesterRecipientProvider']
-                        ]
-                    )
-                }
+                // Publish HTML test report
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'test-results',
+                    reportFiles: 'report.html',
+                    reportName: 'Test Report'
+                ])
+                
+                // Publish coverage report
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'coverage-report',
+                    reportFiles: 'index.html',
+                    reportName: 'Coverage Report'
+                ])
+                
+                // Clean up any remaining processes
+                sh 'pkill -f Xvfb || true'
             }
         }
     }
