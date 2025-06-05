@@ -107,8 +107,8 @@ pipeline {
                     Xvfb :99 -screen 0 1024x768x16 &
                     export DISPLAY=:99
                     
-                    # Install test dependencies
-                    pip install pytest pytest-cov pytest-html
+                    # Install test and monitoring dependencies
+                    pip install pytest pytest-cov pytest-html prometheus_client
                     
                     # Create test directories
                     mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
@@ -136,18 +136,8 @@ pipeline {
                     // Always archive test results
                     junit allowEmptyResults: true, testResults: '${TEST_RESULTS}/junit.xml'
                     
-                    // Publish coverage report to Codacy (if configured)
-                    withCredentials([string(credentialsId: 'codacy-project-token', variable: 'CODACY_PROJECT_TOKEN')]) {
-                        sh '''
-                            # Install codacy-coverage-reporter if not installed
-                            if ! command -v codacy-coverage-reporter &> /dev/null; then
-                                curl -Ls https://coverage.codacy.com/get.sh | bash
-                            fi
-                            
-                            # Upload coverage report to Codacy
-                            codacy-coverage-reporter report -l python -r ${TEST_RESULTS}/coverage.xml || echo "Failed to upload to Codacy"
-                        '''
-                    }
+                    // Archive coverage report
+                    archiveArtifacts artifacts: '${COVERAGE_REPORT}/**/*', allowEmptyArchive: true
                 }
             }
         }
