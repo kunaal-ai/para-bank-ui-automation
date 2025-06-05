@@ -105,46 +105,36 @@ pipeline {
                     
                     # Start Xvfb for headless browser testing
                     Xvfb :99 -screen 0 1024x768x16 &
+                    export DISPLAY=:99
                     
-                    # Run tests with coverage
+                    # Install test dependencies
+                    pip install pytest pytest-cov pytest-html
+                    
+                    # Create test directories
+                    mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
+                    
+                    # Run tests with coverage and generate reports
                     set +e  # Don't fail immediately if tests fail
                     python -m pytest tests/ \
                         --junitxml=${TEST_RESULTS}/junit.xml \
                         --cov=. \
                         --cov-report=xml:${COVERAGE_REPORT}/coverage.xml \
-                        --cov-report=html:${COVERAGE_REPORT}/
+                        --cov-report=html:${COVERAGE_REPORT} \
+                        --html=${TEST_RESULTS}/report.html \
+                        --self-contained-html \
+                        -v
                     
-                    # Capture the exit code
+                    # Capture the test exit code
                     TEST_EXIT_CODE=$?
-                    
-                    # Generate HTML report
-                    python -m pytest tests/ --html=${TEST_RESULTS}/report.html --self-contained-html || true
                     
                     # Exit with the test status
                     exit $TEST_EXIT_CODE
                 '''
             }
-            
             post {
                 always {
-                    // Archive test results and coverage report
-                    junit allowEmptyResults: true, testResults: '${TEST_RESULTS}/*.xml'
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '${TEST_RESULTS}',
-                        reportFiles: 'test-report.html',
-                        reportName: 'Test Report'
-                    ])
-                    publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '${COVERAGE_REPORT}',
-                        reportFiles: 'index.html',
-                        reportName: 'Coverage Report'
-                    ])
+                    // Always archive test results
+                    junit allowEmptyResults: true, testResults: '${TEST_RESULTS}/junit.xml'
                     
                     // Publish coverage report to Codacy (if configured)
                     withCredentials([string(credentialsId: 'codacy-project-token', variable: 'CODACY_PROJECT_TOKEN')]) {
