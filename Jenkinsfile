@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.9-slim'
+            args '-u root --network=host'
+        }
+    }
     
     environment {
         // Test results and reports directory
@@ -15,11 +20,39 @@ pipeline {
             steps {
                 echo 'Setting up environment...'
                 sh '''
+                    # Update package lists and install system dependencies
+                    apt-get update && apt-get install -y --no-install-recommends \
+                        curl \
+                        git \
+                        wget \
+                        unzip \
+                        xvfb \
+                        libnss3 \
+                        libnspr4 \
+                        libatk1.0-0 \
+                        libatk-bridge2.0-0 \
+                        libcups2 \
+                        libdrm2 \
+                        libxkbcommon0 \
+                        libxcomposite1 \
+                        libxdamage1 \
+                        libxfixes3 \
+                        libxrandr2 \
+                        libgbm1 \
+                        libasound2 \
+                        libatspi2.0-0 \
+                        libx11-xcb1
+
                     # Create test results directory
                     mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
                     
                     # Install Python dependencies
+                    pip install --upgrade pip
                     pip install -r requirements.txt
+                    
+                    # Install Playwright browsers
+                    playwright install --with-deps
+                    playwright install-deps
                     pip install pytest-cov pylint black
                     
                     # Install Playwright browsers
