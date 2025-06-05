@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/local/bin/docker:/usr/bin/docker
+      - ./:/var/jenkins_home/workspace/para-bank-ui-automation
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - monitoring
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -16,6 +34,8 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     restart: unless-stopped
+    networks:
+      - monitoring
 
   pushgateway:
     image: prom/pushgateway:latest
@@ -23,6 +43,8 @@ services:
     ports:
       - "9091:9091"
     restart: unless-stopped
+    networks:
+      - monitoring
 
   grafana:
     image: grafana/grafana:latest
@@ -39,7 +61,27 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
+    networks:
+      - monitoring
+
+  # Service for building and testing the application
+  app:
+    build: .
+    container_name: para-bank-app
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - monitoring
+    # This service won't start by default, it will be used by Jenkins
+    command: tail -f /dev/null
+
+networks:
+  monitoring:
+    driver: bridge
 
 volumes:
+  jenkins_home:
   prometheus_data:
   grafana_data:
