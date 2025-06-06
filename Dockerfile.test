@@ -1,0 +1,64 @@
+FROM mcr.microsoft.com/playwright:v1.42.1-jammy
+
+# Set working directory
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    xvfb \
+    dbus \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and activate virtual environment
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade pip and install Python dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt pytest-html pytest-playwright
+
+# Install Playwright and browsers
+RUN playwright install --with-deps chromium && \
+    playwright install-deps
+
+# Create test results directory with proper permissions
+RUN mkdir -p /workspace/test-results && \
+    chmod -R 777 /workspace/test-results && \
+    chown -R nobody:nogroup /workspace/test-results
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
+ENV BASE_URL=https://parabank.parasoft.com/parabank/
+ENV PYTHONPATH=/workspace
+ENV DISPLAY=:99
+ENV PLAYWRIGHT_HEADLESS=true
+
+# Copy test files
+COPY . .
+
+# Install the project in development mode
+RUN pip install -e .
+
+# Create a script to start Xvfb and run tests
+RUN echo '#!/bin/bash\n\
+# Ensure test-results directory exists and has proper permissions\n\
+mkdir -p /workspace/test-results\n\
+chmod -R 777 /workspace/test-results\n\
+chown -R nobody:nogroup /workspace/test-results\n\
+\n\
+# Start Xvfb\n\
+Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > /tmp/xvfb.log 2>&1 &\n\
+sleep 2\n\
+\n\
+# Run the command\n\
+exec "$@"' > /usr/local/bin/entrypoint.sh && \
+chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python3", "-m", "pytest"]

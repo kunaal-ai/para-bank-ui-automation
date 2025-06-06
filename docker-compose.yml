@@ -1,26 +1,47 @@
 version: '3.8'
 
 services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: para-bank-tests
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./test-results:/workspace/test-results
+      - /workspace/__pycache__
+      - /workspace/.pytest_cache
+    environment:
+      - BASE_URL=https://parabank.parasoft.com/parabank/
+      - PYTHONUNBUFFERED=1
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
+      - PYTHONPATH=/workspace
+      - DISPLAY=:99
+      - PLAYWRIGHT_HEADLESS=true
+    shm_size: 2gb
+    ipc: host
+    privileged: true
+    networks:
+      - monitoring
+
   jenkins:
     build:
       context: .
       dockerfile: Dockerfile.jenkins
     container_name: jenkins
-    user: root  # Run as root to avoid permission issues
-    privileged: true  # Required for Docker-in-Docker
+    user: root
+    privileged: true
     ports:
       - "8080:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      # Don't mount host's docker binary, use the one installed in the container
-      # - /usr/local/bin/docker:/usr/bin/docker
-      # - /usr/local/bin/docker-compose:/usr/local/bin/docker-compose
       - ./:/var/jenkins_home/workspace/para-bank-ui-automation
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - DOCKER_BUILDKIT=1  # Enable Docker BuildKit
+      - DOCKER_BUILDKIT=1
     restart: unless-stopped
     networks:
       - monitoring
@@ -69,19 +90,6 @@ services:
       - prometheus
     networks:
       - monitoring
-
-  # Service for building and testing the application
-  app:
-    build: .
-    container_name: para-bank-app
-    volumes:
-      - ./:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-    networks:
-      - monitoring
-    # This service won't start by default, it will be used by Jenkins
-    command: tail -f /dev/null
 
 networks:
   monitoring:
