@@ -7,10 +7,10 @@ pipeline {
     }
     
     environment {
-        // Fixed workspace path without extra quote
-        WORKSPACE = "${env.WORKSPACE}".replaceAll('"', '')
-        TEST_RESULTS = "${env.WORKSPACE}/test-results".replaceAll('"', '')
-        COVERAGE_REPORT = "${env.WORKSPACE}/coverage-report".replaceAll('"', '')
+        // Clean workspace path and set environment variables
+        WORKSPACE = "${pwd()}"
+        TEST_RESULTS = "${pwd()}/test-results"
+        COVERAGE_REPORT = "${pwd()}/coverage-report"
         DISPLAY = ':99'
         // Base URL for the application
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
@@ -31,8 +31,17 @@ pipeline {
         stage('Setup') {
             steps {
                 echo 'Setting up environment...'
-                sh '''#!/bin/bash -l
-                      # Install system dependencies
+                sh '''#!/bin/sh -e
+                    # Print environment for debugging
+                    echo "=== Environment ==="
+                    env | sort
+                    
+                    # Set safe defaults
+                    export HOME=/tmp
+                    export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+                    
+                    # Install system dependencies
+                    echo "=== Installing system dependencies ==="
                     apk add --no-cache \
                         python3 \
                         py3-pip \
@@ -71,35 +80,74 @@ pipeline {
                         docker-cli \
                         docker-compose
                         
+                    # Verify critical binaries
+                    echo "=== Verifying installations ==="
+                    which python3 pip3 xvfb-run docker || true
+                        
                     # Create symbolic links for Python
-                    ln -sf python3 /usr/bin/python
-                    ln -sf pip3 /usr/bin/pip
+                    ln -sf python3 /usr/bin/python || echo "Failed to create python symlink"
+                    ln -sf pip3 /usr/bin/pip || echo "Failed to create pip symlink"
                     
                     # Verify Docker is working
                     echo "=== Docker Info ==="
-                    docker info || echo "Docker not working"
+                    docker info || echo "Docker not working as expected, continuing..."
                     
                     # Create and activate virtual environment
-                    python -m venv /opt/venv
-                    source /opt/venv/bin/activate
+                    echo "=== Setting up Python virtual environment ==="
+                    python -m venv /opt/venv || {
+                        echo "Failed to create virtual environment"
+                        exit 1
+                    }
+                    source /opt/venv/bin/activate || {
+                        echo "Failed to activate virtual environment"
+                        exit 1
+                    }
                     
                     # Upgrade pip and install Python dependencies
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
+                    echo "=== Installing Python dependencies ==="
+                    pip install --upgrade pip || {
+                        echo "Failed to upgrade pip"
+                        exit 1
+                    }
+                    
+                    if [ -f "requirements.txt" ]; then
+                        pip install -r requirements.txt || {
+                            echo "Failed to install requirements"
+                            exit 1
+                        }
+                    else
+                        echo "requirements.txt not found, skipping dependency installation"
+                    fi
                     
                     # Install Playwright and browsers
-                    pip install playwright
-                    playwright install --with-deps
+                    echo "=== Installing Playwright ==="
+                    pip install playwright || {
+                        echo "Failed to install Playwright"
+                        exit 1
+                    }
+                    
+                    echo "=== Installing Playwright browsers ==="
+                    python -m playwright install --with-deps || {
+                        echo "Failed to install Playwright browsers"
+                        exit 1
+                    }
                     
                     # Verify installations
                     echo "=== Python Environment ==="
-                    which python
-                    python --version
-                    pip --version
-                    python -m playwright --version
+                    which python || echo "Python not found in PATH"
+                    python --version || echo "Failed to get Python version"
+                    pip --version || echo "Failed to get pip version"
+                    python -m playwright --version || echo "Failed to get Playwright version"
                     
                     # Create test directories
-                    mkdir -p "${TEST_RESULTS}" "${COVERAGE_REPORT}"
+                    echo "=== Creating test directories ==="
+                    mkdir -p "${TEST_RESULTS}" "${COVERAGE_REPORT}" || {
+                        echo "Failed to create test directories"
+                        exit 1
+                    }
+                    
+                    echo "=== Directory Structure ==="
+                    ls -la . || true
                     
                     # Verify installations
                     echo "=== Environment Setup Complete ==="
