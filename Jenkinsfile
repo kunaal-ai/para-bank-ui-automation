@@ -157,20 +157,20 @@ pipeline {
                     exit $TEST_RESULT
                 '''
             }
-            post {
-                always {
-                    junit 'test-results/junit.xml'
-                    archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
-                    archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
-                    archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
-                }
-            }
         }
     }
 
     post {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
+            
+            // Archive test results before cleaning workspace
+            junit 'test-results/junit.xml'
+            archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
+            
+            // Clean workspace after archiving
             cleanWs()
         }
     }
