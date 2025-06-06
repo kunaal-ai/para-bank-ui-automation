@@ -1,8 +1,8 @@
 pipeline {
     agent {
         docker {
-            image 'python:3.9-slim'
-            args '-u root --privileged -v /var/run/docker.sock:/var/run/docker.sock'
+            image 'docker:24.0.7-dind'
+            args '-v /var/run/docker.sock:/var/run/docker.sock --privileged'
         }
     }
     
@@ -32,44 +32,71 @@ pipeline {
             steps {
                 echo 'Setting up environment...'
                 sh '''#!/bin/bash -l
-                    # Update and install system dependencies
-                    apt-get update && apt-get install -y --no-install-recommends \
+                      # Install system dependencies
+                    apk add --no-cache \
                         python3 \
-                        python3-pip \
-                        python3-venv \
-                        libnss3 \
-                        libnspr4 \
-                        libatk1.0-0 \
-                        libatk-bridge2.0-0 \
-                        libcups2 \
-                        libdrm2 \
-                        libxkbcommon0 \
-                        libxcomposite1 \
-                        libxdamage1 \
-                        libxfixes3 \
-                        libxrandr2 \
-                        libgbm1 \
-                        libasound2 \
-                        libatspi2.0-0 \
-                        libx11-xcb1 \
+                        py3-pip \
+                        python3-dev \
+                        gcc \
+                        musl-dev \
+                        libffi-dev \
+                        openssl-dev \
+                        libgcc \
                         xvfb \
-                        && rm -rf /var/lib/apt/lists/*
+                        tzdata \
+                        dbus \
+                        ttf-freefont \
+                        fontconfig \
+                        libxrender \
+                        libxext \
+                        libxi \
+                        libglib \
+                        libx11 \
+                        libxcomposite \
+                        libxcursor \
+                        libxtst \
+                        libxss \
+                        nss \
+                        atk \
+                        at-spi2-atk \
+                        cups-libs \
+                        gtk+3.0 \
+                        libdrm \
+                        mesa-glx \
+                        eudev \
+                        bash \
+                        curl \
+                        git \
+                        sudo \
+                        docker-cli \
+                        docker-compose
+                        
+                    # Create symbolic links for Python
+                    ln -sf python3 /usr/bin/python
+                    ln -sf pip3 /usr/bin/pip
                     
-                    # Create virtual environment if it doesn't exist
-                    if [ ! -d "venv" ]; then
-                        python3 -m venv venv
-                    fi
+                    # Verify Docker is working
+                    echo "=== Docker Info ==="
+                    docker info || echo "Docker not working"
                     
-                    # Activate virtual environment using dot operator
-                    . venv/bin/activate
+                    # Create and activate virtual environment
+                    python -m venv /opt/venv
+                    source /opt/venv/bin/activate
                     
                     # Upgrade pip and install Python dependencies
-                    python -m pip install --upgrade pip
-                    python -m pip install -r requirements.txt
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
                     
                     # Install Playwright and browsers
-                    python -m pip install playwright
-                    python -m playwright install --with-deps
+                    pip install playwright
+                    playwright install --with-deps
+                    
+                    # Verify installations
+                    echo "=== Python Environment ==="
+                    which python
+                    python --version
+                    pip --version
+                    python -m playwright --version
                     
                     # Create test directories
                     mkdir -p "${TEST_RESULTS}" "${COVERAGE_REPORT}"
@@ -82,8 +109,11 @@ pipeline {
                     echo "Pip version: $(pip --version)"
                     echo "Playwright: $(python -m playwright --version)"
                     echo "Docker: $(which docker)"
-                    echo "Docker version: $(docker --version)"
-                    echo "Docker Compose: $(which docker-compose || echo 'Not found')"'''
+                    echo "Docker version: $(docker --version 2>/dev/null || echo 'Docker not found')"
+                    echo "Docker Compose: $(docker compose version 2>/dev/null || echo 'Docker Compose not found')"
+                    echo "Docker socket: $(ls -la /var/run/docker.sock 2>/dev/null || echo 'Docker socket not found')"
+                    echo "Current user: $(whoami)"
+                    echo "Groups: $(groups)"'''
             }
         }
         
