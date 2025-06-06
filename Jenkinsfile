@@ -2,79 +2,186 @@ pipeline {
     agent {
         docker {
             image 'mcr.microsoft.com/playwright:v1.42.1-jammy'
-            args '--ipc=host --shm-size=2g -u root'
+            args '-v ${WORKSPACE}:/workspace -w /workspace --ipc=host --shm-size=2g -u root'
             reuseNode true
         }
     }
 
     environment {
-        BASE_URL = 'https://parabank.parasoft.com/parabank/'
+        BASE_URL = 'https://para.testar.org/parabank/index.htm/'
         DISPLAY = ':99'
-        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
+        WORKSPACE = '/workspace'
+        PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
         PASSWORD = credentials('PARABANK_PASSWORD')
+        PYTHONUNBUFFERED = '1'
+        REPO_URL = 'https://github.com/kt/para-bank-ui-automation.git'
     }
 
     stages {
-        stage('Checkout Source Code') {
+        stage('Setup') {
             steps {
-                // Checkout code from SCM
-                checkout scm
-                
-                sh '''
-                    echo "Workspace after checkout:"
-                    ls -la
-                    echo "Tests directory contents:"
-                    ls -la tests/ || echo "Tests directory not found yet"
+                sh '''#!/bin/bash -xe
+                    set -e
+                    echo "=== Installing Python and pip ==="
+                    apt-get update || { echo "Failed to update apt"; exit 1; }
+                    apt-get install -y python3 python3-pip python3-venv git || { echo "Failed to install dependencies"; exit 1; }
+                    
+                    echo "=== System Information ==="
+                    uname -a
+                    python3 --version
+                    python3 -m pip --version
+                    
+                    echo "=== Python Environment ==="
+                    python3 -c "import sys; print(f'Python Path: {sys.path}')"
+                    
+                    echo "=== Installing Python Dependencies ==="
+                    python3 -m pip install --upgrade pip setuptools wheel || { echo "Failed to upgrade pip"; exit 1; }
+                    
+                    # Install requirements if exists
+                    if [ -f "requirements.txt" ]; then
+                        echo "=== Installing requirements ==="
+                        python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; exit 1; }
+                    fi
+                    
+                    # Install test dependencies
+                    echo "=== Installing Test Dependencies ==="
+                    python3 -m pip install pytest pytest-html pytest-xdist pytest-playwright || { echo "Failed to install test dependencies"; exit 1; }
+                    
+                    echo "=== Installing Playwright ==="
+                    python3 -m playwright install --with-deps chromium || { echo "Failed to install Playwright"; exit 1; }
+                    
+                    echo "=== Verifying Playwright ==="
+                    python3 -m playwright --version
                 '''
             }
         }
 
-        stage('Setup') {
+        stage('Clone Repository') {
             steps {
-                sh '''
-                    # Install Python and pip
-                    apt-get update -qq
-                    apt-get install -y python3-pip
+                sh '''#!/bin/bash -xe
+                    set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    # Install testing dependencies
-                    pip3 install playwright pytest pytest-html
+                    echo "=== Current Workspace Contents ==="
+                    ls -la
+                    
+                    echo "=== Cloning Repository ==="
+                    # Remove existing contents except .git if it exists
+                    if [ -d ".git" ]; then
+                        echo "Git repository exists, pulling latest changes..."
+                        git pull || { echo "Failed to pull latest changes"; exit 1; }
+                    else
+                        echo "No git repository found, cleaning workspace and cloning..."
+                        # Create a temporary directory for venv if it exists
+                        if [ -d "venv" ]; then
+                            mv venv /tmp/venv_backup || { echo "Failed to backup venv"; exit 1; }
+                        fi
+                        
+                        # Clean the workspace
+                        rm -rf .[!.]* * 2>/dev/null || true
+                        
+                        # Clone the repository
+                        git clone "${REPO_URL}" . || { echo "Failed to clone repository"; exit 1; }
+                        
+                        # Restore venv if it existed
+                        if [ -d "/tmp/venv_backup" ]; then
+                            rm -rf venv
+                            mv /tmp/venv_backup venv || { echo "Failed to restore venv"; exit 1; }
+                        fi
+                    fi
+                    
+                    echo "=== Repository Contents After Clone ==="
+                    ls -la
+                '''
+            }
+        }
+
+        stage('Verify Repository') {
+            steps {
+                sh '''#!/bin/bash -xe
+                    set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
+                    
+                    echo "=== Repository Structure ==="
+                    echo "Working directory: $(pwd)"
+                    echo "Contents:"
+                    ls -la
+                    
+                    # Check for tests directory
+                    if [ ! -d "tests" ]; then
+                        echo "ERROR: 'tests' directory not found!"
+                        echo "Current directory contents:"
+                        ls -la
+                        echo "Checking parent directory:"
+                        ls -la ..
+                        exit 1
+                    fi
+                    
+                    echo "=== Tests Directory Contents ==="
+                    ls -la tests/
                 '''
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh '''
-                    # Start headless display
+                sh '''#!/bin/bash -xe
+                    set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
+                    
+                    # Create test results directory
+                    mkdir -p test-results || { echo "Failed to create test-results directory"; exit 1; }
+                    
+                    # Start headless display with better error handling
                     Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > /tmp/xvfb.log 2>&1 &
                     XPID=$!
                     
-                    # Verify tests directory exists
-                    if [ ! -d "tests" ]; then
-                        echo "ERROR: tests directory not found!"
-                        echo "Current workspace contents:"
-                        ls -la
-                        echo "Creating tests directory structure for debugging"
-                        mkdir -p tests
-                        echo "import pytest" > tests/test_sample.py
-                    fi
+                    # Wait for Xvfb to start with timeout
+                    for i in {1..10}; do
+                        if ps -p $XPID > /dev/null; then
+                            sleep 2
+                            if xdpyinfo -display :99 >/dev/null 2>&1; then
+                                break
+                            fi
+                        fi
+                        if [ $i -eq 10 ]; then
+                            echo "Failed to start Xvfb"
+                            cat /tmp/xvfb.log
+                            exit 1
+                        fi
+                        sleep 1
+                    done
                     
-                    # Run tests
-                    echo "Running tests from: $(pwd)"
+                    # Run tests with retry for flaky tests
+                    echo "=== Running Tests ==="
+                    set +e
                     python3 -m pytest tests/ \
                         -v \
                         --junitxml=test-results/junit.xml \
                         --html=test-results/report.html \
-                        --self-contained-html
+                        --self-contained-html \
+                        --retries=1 \
+                        --browser chromium \
+                        --headed
+                    TEST_RESULT=$?
+                    set -e
                     
                     # Stop display server
-                    kill $XPID
+                    kill $XPID || true
+                    
+                    # Exit with test result
+                    exit $TEST_RESULT
                 '''
             }
             post {
                 always {
                     junit 'test-results/junit.xml'
-                    archiveArtifacts artifacts: 'test-results/report.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
                 }
             }
         }
@@ -84,8 +191,7 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             sh 'pkill -f "Xvfb :99" || true'
-            archiveArtifacts artifacts: '**/playwright-traces/*.zip,**/test-results/*.png', allowEmptyArchive: true
-            deleteDir()
+            cleanWs()
         }
     }
 }
