@@ -20,8 +20,8 @@ pipeline {
         // Docker settings
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_BUILDKIT = '1'
-        // Playwright settings
-        PLAYWRIGHT_BROWSERS_PATH = '0'  # Don't download browsers, use system ones
+        // Playwright settings - use system browsers
+        PLAYWRIGHT_BROWSERS_PATH = '0'
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
     }
     
