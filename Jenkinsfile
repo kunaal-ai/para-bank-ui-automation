@@ -132,8 +132,9 @@ pipeline {
                     # Navigate to workspace
                     cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    # Create test results directory
-                    mkdir -p test-results || { echo "Failed to create test-results directory"; exit 1; }
+                    # Create test results directory with proper permissions
+                    mkdir -p test-results
+                    chmod -R 777 test-results
                     
                     # Run tests
                     echo "=== Running Tests ==="
@@ -147,6 +148,10 @@ pipeline {
                         --browser=chromium
                     TEST_RESULT=$?
                     set -e
+                    
+                    # Ensure test results are accessible
+                    echo "=== Test Results Contents ==="
+                    ls -la test-results/
                     
                     # Exit with test result
                     exit $TEST_RESULT
