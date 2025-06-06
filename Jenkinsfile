@@ -8,14 +8,13 @@ pipeline {
     }
 
     environment {
-        BASE_URL = 'https://para.testar.org/parabank/index.htm/'
+        BASE_URL = 'https://parabank.parasoft.com/parabank/'
         WORKSPACE = '/workspace'
         PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
         PASSWORD = credentials('PARABANK_PASSWORD')
         PYTHONUNBUFFERED = '1'
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
-        PLAYWRIGHT_HEADLESS = 'true'
     }
 
     stages {
@@ -136,7 +135,7 @@ pipeline {
                     # Create test results directory
                     mkdir -p test-results || { echo "Failed to create test-results directory"; exit 1; }
                     
-                    # Run tests in headless mode
+                    # Run tests
                     echo "=== Running Tests ==="
                     set +e
                     python3 -m pytest tests/ \
@@ -145,8 +144,7 @@ pipeline {
                         --html=test-results/report.html \
                         --self-contained-html \
                         --reruns 1 \
-                        --browser=chromium \
-                        --headed=false
+                        --browser=chromium
                     TEST_RESULT=$?
                     set -e
                     
