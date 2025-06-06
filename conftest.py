@@ -18,15 +18,16 @@ BASE_URL = os.environ.get('BASE_URL', 'https://parabank.parasoft.com/parabank/')
 TEST_RESULTS_DIR = Path("test-results")
 TEST_RESULTS_DIR.mkdir(exist_ok=True)
 
-
+# Check if running in CI environment
+IS_CI = bool(os.environ.get('JENKINS_HOME') or os.environ.get('CI'))
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args(browser_type_launch_args):
     """Configure browser launch arguments."""
     return {
         **browser_type_launch_args,
-        'headless': False,  # Set to True for CI
-        'slow_mo': 100,  # Slow down execution for debugging
+        'headless': IS_CI,  # Use headless mode in CI
+        'slow_mo': 0 if IS_CI else 100,  # No slowdown in CI
     }
 
 @pytest.fixture(scope="session")
