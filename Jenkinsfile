@@ -153,6 +153,9 @@ pipeline {
                     echo "=== Test Results Contents ==="
                     ls -la test-results/
                     
+                    # Copy test results to a location that Jenkins can access
+                    cp -r test-results/* ${WORKSPACE}/ || true
+                    
                     # Exit with test result
                     exit $TEST_RESULT
                 '''
@@ -164,9 +167,9 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
-            // Archive test results before cleaning workspace
-            junit 'test-results/junit.xml'
-            archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
+            // Archive test results
+            junit 'junit.xml'
+            archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
             archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
             archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
             

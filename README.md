@@ -1,6 +1,97 @@
 # para-bank-ui-automation
 Banking domain: Python, Rspec, Playwright, CI/CD Jenkins, HTML reports, Prometheus, Grafana
 
+# ParaBank UI Automation
+
+Automated UI tests for the ParaBank application using Playwright and Python.
+
+## Project Structure
+
+```
+para-bank-ui-automation/
+├── tests/                      # Test files
+│   ├── __init__.py
+│   ├── test_bill_pay.py       # Bill payment tests
+│   ├── test_home_login.py     # Home page login tests
+│   └── test_login.py          # Login functionality tests
+├── pages/                      # Page Object Models
+│   ├── __init__.py
+│   ├── home_login_page.py     # Home page POM
+│   ├── bill_pay_page.py       # Bill payment page POM
+│   └── helper_pom/            # Helper POMs
+│       └── payment_services_tab.py
+├── test-results/              # Test execution results
+│   ├── report.html           # HTML test report
+│   ├── junit.xml            # JUnit XML report
+│   └── videos/              # Test execution videos
+├── Jenkinsfile               # Jenkins pipeline configuration
+├── pytest.ini               # Pytest configuration
+├── requirements.txt         # Python dependencies
+└── README.md               # Project documentation
+```
+
+## Features
+
+- Automated UI testing using Playwright
+- Page Object Model design pattern
+- Jenkins CI/CD pipeline integration
+- HTML and JUnit XML test reports
+- Video recording for failed tests
+- Test retry mechanism for flaky tests
+
+## Prerequisites
+
+- Python 3.10+
+- Node.js (for Playwright)
+- Jenkins (for CI/CD)
+
+## Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/kunaal-ai/para-bank-ui-automation.git
+   cd para-bank-ui-automation
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   playwright install
+   ```
+
+3. Run tests:
+   ```bash
+   pytest
+   ```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `BASE_URL` | Application base URL | https://parabank.parasoft.com/parabank/ |
+| `PASSWORD` | Test user password | - |
+| `PYTHONUNBUFFERED` | Real-time test output | 1 |
+
+### Test Configuration
+
+- Browser: Chromium
+- Headless Mode: Enabled in CI
+- Timeout: 30 seconds
+- Retry Failed Tests: 1 attempt
+
+## CI/CD Pipeline
+
+The project uses Jenkins for continuous integration. The pipeline:
+1. Sets up the test environment
+2. Clones the repository
+3. Runs the test suite
+4. Generates and archives test reports
+
+![Jenkins Pipeline](readme_assets/jenkins_pipeline.png)
+
+
 # Local Development & Testing
 
 ## Prerequisites
@@ -122,3 +213,5 @@ During test execution, metrics are automatically pushed to the Pushgateway after
 - `test_passes_total`: Total number of passed tests
 - `test_failures_total`: Total number of failed tests
 - `test_duration_seconds`: Test execution time in seconds (histogram)
+
+
