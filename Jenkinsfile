@@ -15,7 +15,6 @@ pipeline {
         COVERAGE_REPORT = 'coverage-report'
         // Base URL for the application
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
-        // Test configuration
         TEST_BASE_URL = 'https://parabank.parasoft.com/parabank/'
         // Docker settings
         DOCKER_HOST = 'unix:///var/run/docker.sock'
@@ -23,6 +22,10 @@ pipeline {
         // Playwright settings - use system browsers
         PLAYWRIGHT_BROWSERS_PATH = '0'
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
+        
+        // Load credentials from Jenkins
+        // These will be available as environment variables in the container
+        PASSWORD = credentials('PARABANK_PASSWORD')
     }
     
     stages {
@@ -97,8 +100,9 @@ pipeline {
         stage('Test') {
             environment {
                 // Test-specific environment variables
-                BASE_URL = 'https://parabank.parasoft.com/parabank/index.htm'
+                BASE_URL = 'https://parabank.parasoft.com/parabank/'
                 // Make sure the display is set for headless browser testing
+                // PASSWORD is already available from the global environment
                 DISPLAY = ':99'
             }
             

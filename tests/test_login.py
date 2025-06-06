@@ -2,16 +2,25 @@
 import os
 import re
 import pytest
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from playwright.sync_api import Page, expect
 from pages.home_login_page import HomePage
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file if it exists
+env_path = find_dotenv(usecwd=True)
+if env_path:
+    load_dotenv(dotenv_path=env_path)
 
 # Get credentials from environment variables
 TEST_USERNAME = "john"
-TEST_PASSWORD = os.getenv("PASSWORD")
+TEST_PASSWORD = os.environ.get("PASSWORD")
+
+if not TEST_PASSWORD and os.environ.get("JENKINS_HOME"):
+    # In Jenkins, the password might be in a different environment variable
+    TEST_PASSWORD = os.environ.get("PASSWORD")
+
+if not TEST_PASSWORD:
+    print("Warning: PASSWORD environment variable is not set. Tests requiring authentication will fail.")
 
 
 def test_login_successful(page: Page, base_url: str):
