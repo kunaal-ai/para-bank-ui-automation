@@ -14,7 +14,8 @@ pipeline {
         PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
         PASSWORD = credentials('PARABANK_PASSWORD')
         PYTHONUNBUFFERED = '1'
-        REPO_URL = 'https://github.com/kt/para-bank-ui-automation.git'
+        REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
+        GITHUB_CREDENTIALS = credentials('github-credentials')
     }
 
     stages {
@@ -81,8 +82,8 @@ pipeline {
                         # Clean the workspace
                         rm -rf .[!.]* * 2>/dev/null || true
                         
-                        # Clone the repository
-                        git clone "${REPO_URL}" . || { echo "Failed to clone repository"; exit 1; }
+                        # Clone the repository with credentials
+                        git clone https://${GITHUB_CREDENTIALS}@github.com/kunaal-ai/para-bank-ui-automation.git . || { echo "Failed to clone repository"; exit 1; }
                         
                         # Restore venv if it existed
                         if [ -d "/tmp/venv_backup" ]; then
