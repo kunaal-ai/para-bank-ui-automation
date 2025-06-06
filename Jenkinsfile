@@ -2,17 +2,16 @@ pipeline {
     agent {
         docker {
             image 'python:3.9-slim'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -u root --privileged'
-            reuseNode true
+            args '-u root --privileged -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
     
     environment {
-        // Use a consistent Python version
-        PYTHONUNBUFFERED = '1'
-        // Test results and reports directory
-        TEST_RESULTS = 'test-results'
-        COVERAGE_REPORT = 'coverage-report'
+        // Fixed workspace path without extra quote
+        WORKSPACE = "${env.WORKSPACE}".replaceAll('"', '')
+        TEST_RESULTS = "${env.WORKSPACE}/test-results".replaceAll('"', '')
+        COVERAGE_REPORT = "${env.WORKSPACE}/coverage-report".replaceAll('"', '')
+        DISPLAY = ':99'
         // Base URL for the application
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
         TEST_BASE_URL = 'https://parabank.parasoft.com/parabank/'
@@ -118,41 +117,112 @@ pipeline {
             
             steps {
                 script {
-                    // Create directories for test results and coverage reports
+                    // Clean up any existing test artifacts
                     sh '''
-                    mkdir -p "${WORKSPACE}/test-results"
-                    mkdir -p "${WORKSPACE}/coverage-report/html"
+                    # Clean up any existing test artifacts
+                    rm -rf "${env.WORKSPACE}/test-results"
+                    rm -rf "${env.WORKSPACE}/coverage-report"
+                    
+                    # Create fresh directories
+                    mkdir -p "${env.WORKSPACE}/test-results"
+                    mkdir -p "${env.WORKSPACE}/coverage-report/html"
+                    
+                    # Verify directory creation
+                    echo "Workspace: ${env.WORKSPACE}"
+                    echo "Test results dir: ${env.WORKSPACE}/test-results"
+                    ls -la "${env.WORKSPACE}"
                     '''
                     
                     // Run tests with coverage and generate reports
-                    withEnv(["WORKSPACE=${env.WORKSPACE}"]) {
+                    withEnv([
+                        "WORKSPACE=${env.WORKSPACE}",
+                        "PATH=${env.PATH}",
+                        "HOME=${env.HOME}",
+                        "LANG=${env.LANG}",
+                        "PWD=${env.WORKSPACE}"
+                    ]) {
                         try {
                             sh '''
-                            #!/bin/sh
-                            set -e
+                            #!/bin/bash -xe
+                            # Print environment for debugging
+                            printenv | sort
+                            
+                            # Navigate to workspace
                             cd "${WORKSPACE}"
-                            . venv/bin/activate  # Using dot operator instead of source
+                            
+                            # Activate virtual environment
+                            if [ -f "venv/bin/activate" ]; then
+                                . venv/bin/activate
+                            else
+                                echo "Virtual environment not found!"
+                                exit 1
+                            fi
                             
                             # Verify Python and pip
-                            echo "Using Python: $(which python)"
+                            echo "=== Python Environment ==="
+                            echo "Python path: $(which python)"
                             echo "Python version: $(python --version)"
+                            echo "Pip version: $(pip --version)"
+                            
+                            # Install Playwright browsers if not already installed
+                            playwright install --with-deps
                             
                             # Start Xvfb for headless browser testing
-                            Xvfb :99 -screen 0 1024x768x16 &
+                            echo "=== Starting Xvfb ==="
+                            Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
                             export DISPLAY=:99
                             
                             # Verify Xvfb is running
-                            echo "Xvfb process: $(ps aux | grep Xvfb)"
+                            echo "=== Xvfb Status ==="
+                            if ! pgrep -x "Xvfb" > /dev/null; then
+                                echo "Xvfb failed to start!"
+                                exit 1
+                            fi
+                            
+                            # Set display for debugging
+                            xdpyinfo -display :99
+                            xrandr --display :99
+                            
+                            # Verify browser can start
+                            echo "=== Browser Check ==="
+                            python -c "from playwright.sync_api import sync_playwright; \
+                                with sync_playwright() as p: \
+                                    browser = p.chromium.launch(headless=True); \
+                                    page = browser.new_page(); \
+                                    print('Browser launched successfully'); \
+                                    browser.close()"
                             
                             # Run pytest with coverage and reporting
+                            set +e  # Don't exit on error so we can capture the exit code
+                            
+                            echo "=== Starting Test Execution ==="
                             python -m pytest tests/ \
+                                -v \
                                 --junitxml="${WORKSPACE}/test-results/junit.xml" \
                                 --html="${WORKSPACE}/test-results/report.html" \
                                 --self-contained-html \
-                                --cov=./ \
-                                --cov-report=xml:"${WORKSPACE}/coverage-report/coverage.xml" \
-                                --cov-report=html:"${WORKSPACE}/coverage-report/html" \
-                                -v
+                                --cov=pages \
+                                --cov=tests \
+                                --cov-report=xml:${WORKSPACE}/coverage-report/coverage.xml \
+                                --cov-report=html:${WORKSPACE}/coverage-report/html/ \
+                                --cov-report=term \
+                                --cov-branch \
+                                --cache-clear
+                            
+                            # Capture the exit code
+                            TEST_EXIT_CODE=$?
+                            
+                            # Generate coverage report
+                            echo "=== Generating Coverage Report ==="
+                            coverage html -d ${WORKSPACE}/coverage-report/html
+                            
+                            # Archive test results
+                            echo "=== Archiving Test Results ==="
+                            ls -la ${WORKSPACE}/test-results/
+                            ls -la ${WORKSPACE}/coverage-report/
+                            
+                            # Exit with the test status code
+                            exit $TEST_EXIT_CODE
                             '''
                         } finally {
                             // Archive test results and reports
