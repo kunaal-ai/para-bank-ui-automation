@@ -4,23 +4,24 @@ services:
   test:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: docker/Dockerfile.test
     container_name: para-bank-tests
     working_dir: /workspace
     volumes:
       - .:/workspace
       - ./test-results:/workspace/test-results
-      - /workspace/__pycache__
-      - /workspace/.pytest_cache
+    env_file:
+      - .env
     environment:
+      - PYTHONPATH=/workspace:/workspace/src
       - BASE_URL=https://parabank.parasoft.com/parabank/
-      - PYTHONUNBUFFERED=1
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
-      - PYTHONPATH=/workspace
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
       - DISPLAY=:99
       - PLAYWRIGHT_HEADLESS=true
-    shm_size: 2gb
     ipc: host
+    shm_size: 2g
     privileged: true
     networks:
       - monitoring
@@ -28,7 +29,7 @@ services:
   jenkins:
     build:
       context: .
-      dockerfile: Dockerfile.jenkins
+      dockerfile: docker/Dockerfile.jenkins
     container_name: jenkins
     user: root
     privileged: true
@@ -52,7 +53,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./config/prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -79,7 +80,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin

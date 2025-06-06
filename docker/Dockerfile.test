@@ -17,10 +17,19 @@ RUN apt-get update && \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
+ENV BASE_URL=https://parabank.parasoft.com/parabank/
+ENV PYTHONPATH=/workspace:/workspace/src
+ENV DISPLAY=:99
+ENV PLAYWRIGHT_HEADLESS=true
+
 # Upgrade pip and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt pytest-html pytest-playwright
+    pip install -r requirements.txt pytest-html pytest-playwright pytest-rerunfailures
 
 # Install Playwright and browsers
 RUN playwright install --with-deps chromium && \
@@ -31,14 +40,6 @@ RUN mkdir -p /workspace/test-results && \
     chmod -R 777 /workspace/test-results && \
     chown -R nobody:nogroup /workspace/test-results
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
-ENV BASE_URL=https://parabank.parasoft.com/parabank/
-ENV PYTHONPATH=/workspace
-ENV DISPLAY=:99
-ENV PLAYWRIGHT_HEADLESS=true
-
 # Copy test files
 COPY . .
 
@@ -47,6 +48,10 @@ RUN pip install -e .
 
 # Create a script to start Xvfb and run tests
 RUN echo '#!/bin/bash\n\
+# Clean up any existing cache\n\
+find /workspace -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true\n\
+find /workspace -name "*.pyc" -delete\n\
+\n\
 # Ensure test-results directory exists and has proper permissions\n\
 mkdir -p /workspace/test-results\n\
 chmod -R 777 /workspace/test-results\n\

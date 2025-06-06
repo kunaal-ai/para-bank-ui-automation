@@ -8,26 +8,51 @@ Automated UI tests for the ParaBank application using Playwright and Python.
 ## Project Structure
 
 ```
-para-bank-ui-automation/
-├── tests/                      # Test files
+.
+├── config
+│   ├── grafana
+│   │   └── provisioning
+│   │       ├── dashboards
+│   │       │   ├── dashboard.yml
+│   │       │   └── test_metrics_dashboard.json
+│   │       └── datasources
+│   │           └── prometheus.yml
+│   └── prometheus
+│       └── prometheus.yml
+├── conftest.py
+├── docker
+│   ├── Dockerfile
+│   ├── Dockerfile.jenkins
+│   └── Dockerfile.test
+├── docker-compose.yml
+├── docs
+│   └── readme_assets
+│       └── jenkins_pipeline.png
+├── Jenkinsfile
+├── pyproject.toml
+├── pytest.ini
+├── README.md
+├── requirements.txt
+├── scripts
+│   ├── run-tests.sh
+│   └── test-pipeline.sh
+├── setup.py
+├── src
 │   ├── __init__.py
-│   ├── test_bill_pay.py       # Bill payment tests
-│   ├── test_home_login.py     # Home page login tests
-│   └── test_login.py          # Login functionality tests
-├── pages/                      # Page Object Models
-│   ├── __init__.py
-│   ├── home_login_page.py     # Home page POM
-│   ├── bill_pay_page.py       # Bill payment page POM
-│   └── helper_pom/            # Helper POMs
-│       └── payment_services_tab.py
-├── test-results/              # Test execution results
-│   ├── report.html           # HTML test report
-│   ├── junit.xml            # JUnit XML report
-│   └── videos/              # Test execution videos
-├── Jenkinsfile               # Jenkins pipeline configuration
-├── pytest.ini               # Pytest configuration
-├── requirements.txt         # Python dependencies
-└── README.md               # Project documentation
+│   ├── pages
+│   │   ├── __init__.py
+│   │   ├── bill_pay_page.py
+│   │   ├── helper_pom
+│   │   │   └── payment_services_tab.py
+│   │   └── home_login_page.py
+│   └── utils
+│       ├── metrics_pusher.py
+│       └── monitoring.py
+└── tests
+    ├── __init__.py
+    ├── test_bill_pay.py
+    ├── test_home_login.py
+    └── test_login.py
 ```
 
 ## Features
@@ -38,12 +63,16 @@ para-bank-ui-automation/
 - HTML and JUnit XML test reports
 - Video recording for failed tests
 - Test retry mechanism for flaky tests
+- Prometheus metrics integration
+- Grafana dashboards for test monitoring
 
 ## Prerequisites
 
 - Python 3.10+
 - Node.js (for Playwright)
 - Jenkins (for CI/CD)
+- Prometheus (for metrics)
+- Grafana (for visualization)
 
 ## Quick Start
 
@@ -81,6 +110,14 @@ para-bank-ui-automation/
 - Timeout: 30 seconds
 - Retry Failed Tests: 1 attempt
 
+### Test Artifacts
+
+The following artifacts are generated during test execution:
+- `report.html`: Detailed HTML test report
+- `junit.xml`: JUnit XML report for CI integration
+- `videos/*.webm`: Video recordings of test executions
+- `auth_state.json`: Authentication state for test sessions
+
 ## CI/CD Pipeline
 
 The project uses Jenkins for continuous integration. The pipeline:
@@ -88,9 +125,34 @@ The project uses Jenkins for continuous integration. The pipeline:
 2. Clones the repository
 3. Runs the test suite
 4. Generates and archives test reports
+5. Collects Prometheus metrics
 
 ![Jenkins Pipeline](readme_assets/jenkins_pipeline.png)
 
+## Metrics and Monitoring
+
+The project integrates with Prometheus and Grafana for test monitoring:
+
+### Prometheus Metrics
+- `test_execution_total`: Total number of test executions
+- `test_duration_seconds`: Test execution time in seconds
+
+### Grafana Dashboards
+- Test execution trends
+- Test duration analysis
+- Failure rate monitoring
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 # Local Development & Testing
 
