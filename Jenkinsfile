@@ -26,13 +26,17 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
+                    #!/bin/bash
+                    set -e
+                    
                     # Create necessary directories
                     mkdir -p test-results
                     chmod -R 777 test-results
                     
                     # Set up Python environment
                     python3 -m venv venv
-                    source venv/bin/activate
+                    . venv/bin/activate
+                    pip install --upgrade pip
                     pip install -r requirements.txt
                     pip install -e .
                 '''
@@ -40,14 +44,14 @@ pipeline {
         }
 
         stage('Run Tests') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
             steps {
                 sh '''
+                    #!/bin/bash
+                    set -e
+                    
                     # Run tests with Docker Compose
-                    ${DOCKER_COMPOSE} build test || exit 1
-                    ${DOCKER_COMPOSE} run --rm test || exit 1
+                    ${DOCKER_COMPOSE} build test
+                    ${DOCKER_COMPOSE} run --rm test
                 '''
             }
         }
