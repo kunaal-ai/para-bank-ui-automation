@@ -145,7 +145,8 @@ pipeline {
                         --html=test-results/report.html \
                         --self-contained-html \
                         --reruns 1 \
-                        --browser=chromium
+                        --browser=chromium \
+                        --headed=false
                     TEST_RESULT=$?
                     set -e
                     
