@@ -104,56 +104,72 @@ pipeline {
                 // Make sure the display is set for headless browser testing
                 // PASSWORD is already available from the global environment
                 DISPLAY = ':99'
+                // Define directories relative to workspace
+                TEST_RESULTS = 'test-results'
+                COVERAGE_REPORT = 'coverage-report'
             }
             
             steps {
-                echo 'Running tests...'
-                sh '''#!/bin/bash -l
-                    # Activate virtual environment
-                    source venv/bin/activate
+                script {
+                    // Create directories for test results and coverage reports
+                    sh '''
+                    mkdir -p "${WORKSPACE}/test-results"
+                    mkdir -p "${WORKSPACE}/coverage-report/html"
+                    '''
                     
-                    # Start Xvfb for headless browser testing
-                    Xvfb :99 -screen 0 1024x768x16 &
-                    export DISPLAY=:99
-                    
-                    # Install test and monitoring dependencies
-                    pip install pytest pytest-cov pytest-html prometheus_client pytest-base-url
-                    
-                    # Verify environment
-                    echo "BASE_URL: ${BASE_URL}"
-                    echo "Current directory: $(pwd)"
-                    echo "Python path: $(which python)"
-                    echo "Pip list:"
-                    pip list
-                    
-                    # Create test directories
-                    mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
-                    
-                    # Run tests with coverage and generate reports
-                    set +e  # Don't fail immediately if tests fail
-                    python -m pytest tests/ \
-                        --junitxml=${TEST_RESULTS}/junit.xml \
-                        --cov=. \
-                        --cov-report=xml:${COVERAGE_REPORT}/coverage.xml \
-                        --cov-report=html:${COVERAGE_REPORT} \
-                        --html=${TEST_RESULTS}/report.html \
-                        --self-contained-html \
-                        -v
-                    
-                    # Capture the test exit code
-                    TEST_EXIT_CODE=$?
-                    
-                    # Exit with the test status
-                    exit $TEST_EXIT_CODE
-                '''
-            }
-            post {
-                always {
-                    // Always archive test results
-                    junit allowEmptyResults: true, testResults: '${TEST_RESULTS}/junit.xml'
-                    
-                    // Archive coverage report
-                    archiveArtifacts artifacts: '${COVERAGE_REPORT}/**/*', allowEmptyArchive: true
+                    // Run tests with coverage and generate reports
+                    withEnv(["WORKSPACE=${env.WORKSPACE}"]) {
+                        try {
+                            sh '''
+                            #!/bin/bash -l
+                            set -e
+                            cd "${WORKSPACE}"
+                            source venv/bin/activate
+                            
+                            # Start Xvfb for headless browser testing
+                            Xvfb :99 -screen 0 1024x768x16 &
+                            export DISPLAY=:99
+                            
+                            # Run pytest with coverage and reporting
+                            python -m pytest tests/ \
+                                --junitxml="${WORKSPACE}/test-results/junit.xml" \
+                                --html="${WORKSPACE}/test-results/report.html" \
+                                --self-contained-html \
+                                --cov=./ \
+                                --cov-report=xml:"${WORKSPACE}/coverage-report/coverage.xml" \
+                                --cov-report=html:"${WORKSPACE}/coverage-report/html" \
+                                -v
+                            '''
+                        } finally {
+                            // Archive test results and reports
+                            junit allowEmptyResults: true, testResults: '**/junit.xml'
+                            
+                            // Archive HTML reports
+                            archiveArtifacts artifacts: 'test-results/**,coverage-report/**', allowEmptyArchive: true
+                            
+                            // Publish HTML test report
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'test-results',
+                                reportFiles: 'report.html',
+                                reportName: 'Test Report',
+                                reportTitles: 'Test Results'
+                            ])
+                            
+                            // Publish coverage report
+                            publishHTML(target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'coverage-report/html',
+                                reportFiles: 'index.html',
+                                reportName: 'Coverage Report',
+                                reportTitles: 'Code Coverage'
+                            ])
+                        }
+                    }
                 }
             }
         }
@@ -182,22 +198,36 @@ pipeline {
         always {
             echo 'Pipeline completed.'
             
-            // Clean up Xvfb process
-            sh 'pkill -f Xvfb || true'
-            
-            // Publish test results and coverage
             script {
-                // Publish JUnit test results
-                junit allowEmptyResults: true, testResults: 'test-results/junit.xml'
+                // Clean up Xvfb process
+                sh 'pkill -f Xvfb || true'
                 
-                // Publish HTML test report
+                // Archive any remaining test artifacts
+                archiveArtifacts artifacts: '**/target/*.jar,**/target/*.war,**/target/*.zip', allowEmptyArchive: true
+                
+                // Archive test results and coverage reports
+                junit allowEmptyResults: true, testResults: '**/test-results/*.xml'
+                
+                // Archive HTML reports
                 publishHTML([
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
                     reportDir: 'test-results',
                     reportFiles: 'report.html',
-                    reportName: 'Test Report'
+                    reportName: 'Test Report',
+                    reportTitles: 'Test Results'
+                ])
+                
+                // Archive coverage reports
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'coverage-report/html',
+                    reportFiles: 'index.html',
+                    reportName: 'Coverage Report',
+                    reportTitles: 'Code Coverage'
                 ])
                 
                 // Publish coverage report
