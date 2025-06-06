@@ -9,13 +9,13 @@ pipeline {
 
     environment {
         BASE_URL = 'https://para.testar.org/parabank/index.htm/'
-        DISPLAY = ':99'
         WORKSPACE = '/workspace'
         PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
         PASSWORD = credentials('PARABANK_PASSWORD')
         PYTHONUNBUFFERED = '1'
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
+        PLAYWRIGHT_HEADLESS = 'true'
     }
 
     stages {
@@ -136,27 +136,7 @@ pipeline {
                     # Create test results directory
                     mkdir -p test-results || { echo "Failed to create test-results directory"; exit 1; }
                     
-                    # Start headless display with better error handling
-                    Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > /tmp/xvfb.log 2>&1 &
-                    XPID=$!
-                    
-                    # Wait for Xvfb to start with timeout
-                    for i in {1..10}; do
-                        if ps -p $XPID > /dev/null; then
-                            sleep 2
-                            if xdpyinfo -display :99 >/dev/null 2>&1; then
-                                break
-                            fi
-                        fi
-                        if [ $i -eq 10 ]; then
-                            echo "Failed to start Xvfb"
-                            cat /tmp/xvfb.log
-                            exit 1
-                        fi
-                        sleep 1
-                    done
-                    
-                    # Run tests with retry for flaky tests
+                    # Run tests in headless mode
                     echo "=== Running Tests ==="
                     set +e
                     python3 -m pytest tests/ \
@@ -166,12 +146,9 @@ pipeline {
                         --self-contained-html \
                         --retries=1 \
                         --browser chromium \
-                        --headed
+                        --headless
                     TEST_RESULT=$?
                     set -e
-                    
-                    # Stop display server
-                    kill $XPID || true
                     
                     # Exit with test result
                     exit $TEST_RESULT
@@ -191,7 +168,6 @@ pipeline {
     post {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
-            sh 'pkill -f "Xvfb :99" || true'
             cleanWs()
         }
     }
