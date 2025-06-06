@@ -14,10 +14,15 @@ pipeline {
         TEST_RESULTS = 'test-results'
         COVERAGE_REPORT = 'coverage-report'
         // Base URL for the application
-        BASE_URL = 'https://parabank.parasoft.com/parabank/index.htm'
+        BASE_URL = 'https://parabank.parasoft.com/parabank/'
+        // Test configuration
+        TEST_BASE_URL = 'https://parabank.parasoft.com/parabank/'
         // Docker settings
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_BUILDKIT = '1'
+        // Playwright settings
+        PLAYWRIGHT_BROWSERS_PATH = '0'  # Don't download browsers, use system ones
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
     }
     
     stages {
@@ -108,7 +113,14 @@ pipeline {
                     export DISPLAY=:99
                     
                     # Install test and monitoring dependencies
-                    pip install pytest pytest-cov pytest-html prometheus_client
+                    pip install pytest pytest-cov pytest-html prometheus_client pytest-base-url
+                    
+                    # Verify environment
+                    echo "BASE_URL: ${BASE_URL}"
+                    echo "Current directory: $(pwd)"
+                    echo "Python path: $(which python)"
+                    echo "Pip list:"
+                    pip list
                     
                     # Create test directories
                     mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
