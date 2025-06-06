@@ -46,7 +46,7 @@ pipeline {
                     
                     # Install test dependencies
                     echo "=== Installing Test Dependencies ==="
-                    python3 -m pip install pytest pytest-html pytest-xdist pytest-playwright || { echo "Failed to install test dependencies"; exit 1; }
+                    python3 -m pip install pytest pytest-html pytest-xdist pytest-playwright pytest-rerunfailures || { echo "Failed to install test dependencies"; exit 1; }
                     
                     echo "=== Installing Playwright ==="
                     python3 -m playwright install --with-deps chromium || { echo "Failed to install Playwright"; exit 1; }
@@ -144,9 +144,8 @@ pipeline {
                         --junitxml=test-results/junit.xml \
                         --html=test-results/report.html \
                         --self-contained-html \
-                        --retries=1 \
-                        --browser chromium \
-                        --headless
+                        --reruns 1 \
+                        --browser=chromium
                     TEST_RESULT=$?
                     set -e
                     
