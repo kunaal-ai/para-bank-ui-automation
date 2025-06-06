@@ -56,28 +56,35 @@ pipeline {
                         xvfb \
                         && rm -rf /var/lib/apt/lists/*
                     
-                    # Create and activate virtual environment
-                    python3 -m venv venv
-                    source venv/bin/activate
+                    # Create virtual environment if it doesn't exist
+                    if [ ! -d "venv" ]; then
+                        python3 -m venv venv
+                    fi
+                    
+                    # Activate virtual environment using dot operator
+                    . venv/bin/activate
                     
                     # Upgrade pip and install Python dependencies
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
+                    python -m pip install --upgrade pip
+                    python -m pip install -r requirements.txt
                     
                     # Install Playwright and browsers
-                    pip install playwright
-                    playwright install --with-deps
+                    python -m pip install playwright
+                    python -m playwright install --with-deps
                     
                     # Create test directories
-                    mkdir -p ${TEST_RESULTS} ${COVERAGE_REPORT}
+                    mkdir -p "${TEST_RESULTS}" "${COVERAGE_REPORT}"
                     
                     # Verify installations
                     echo "=== Environment Setup Complete ==="
-                    echo "Python: $(python3 --version)"
-                    echo "Pip: $(pip --version)"
-                    echo "Playwright: $(playwright --version)"
-                    echo "Docker: $(docker --version)"
-                    echo "Docker Compose: $(docker-compose --version)"'''
+                    echo "Python: $(which python)"
+                    echo "Python version: $(python --version)"
+                    echo "Pip: $(which pip)"
+                    echo "Pip version: $(pip --version)"
+                    echo "Playwright: $(python -m playwright --version)"
+                    echo "Docker: $(which docker)"
+                    echo "Docker version: $(docker --version)"
+                    echo "Docker Compose: $(which docker-compose || echo 'Not found')"'''
             }
         }
         
@@ -121,14 +128,21 @@ pipeline {
                     withEnv(["WORKSPACE=${env.WORKSPACE}"]) {
                         try {
                             sh '''
-                            #!/bin/bash -l
+                            #!/bin/sh
                             set -e
                             cd "${WORKSPACE}"
-                            source venv/bin/activate
+                            . venv/bin/activate  # Using dot operator instead of source
+                            
+                            # Verify Python and pip
+                            echo "Using Python: $(which python)"
+                            echo "Python version: $(python --version)"
                             
                             # Start Xvfb for headless browser testing
                             Xvfb :99 -screen 0 1024x768x16 &
                             export DISPLAY=:99
+                            
+                            # Verify Xvfb is running
+                            echo "Xvfb process: $(ps aux | grep Xvfb)"
                             
                             # Run pytest with coverage and reporting
                             python -m pytest tests/ \
