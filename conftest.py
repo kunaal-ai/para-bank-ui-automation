@@ -1,8 +1,11 @@
 """Test configuration and fixtures"""
 import os
+import re
 import pytest
-from typing import Generator
-from playwright.sync_api import Page, expect
+import json
+from typing import Generator, Dict, Any
+from pathlib import Path
+from playwright.sync_api import Page, Browser, BrowserContext, expect, Playwright
 from pages.home_login_page import HomePage
 from pages.bill_pay_page import BillPay
 from pages.helper_pom.payment_services_tab import PaymentServicesTab
@@ -11,7 +14,50 @@ from metrics_pusher import TestMetrics, push_metrics
 # Get base URL from environment or use default
 BASE_URL = os.environ.get('BASE_URL', 'https://parabank.parasoft.com/parabank/')
 
+# Configure test output directories
+TEST_RESULTS_DIR = Path("test-results")
+TEST_RESULTS_DIR.mkdir(exist_ok=True)
 
+
+
+@pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args):
+    """Configure browser launch arguments."""
+    return {
+        **browser_type_launch_args,
+        'headless': False,  # Set to True for CI
+        'slow_mo': 100,  # Slow down execution for debugging
+    }
+
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args):
+    """Configure browser context arguments."""
+    return {
+        **browser_context_args,
+        'viewport': {'width': 1280, 'height': 800},
+        'ignore_https_errors': True,
+        'record_video_dir': str(TEST_RESULTS_DIR / 'videos'),
+        'record_video_size': {'width': 1280, 'height': 800},
+    }
+
+@pytest.fixture
+def context(browser: Browser, browser_context_args: Dict) -> Generator[BrowserContext, None, None]:
+    """Create a new browser context for each test."""
+    context = browser.new_context(**browser_context_args)
+    yield context
+    context.close()
+
+@pytest.fixture
+def page(context: BrowserContext) -> Generator[Page, None, None]:
+    """Create a new page for each test."""
+    page = context.new_page()
+    yield page
+    
+    # Take screenshot on test failure
+    if hasattr(pytest, "test_failed") and pytest.test_failed:
+        screenshot_path = TEST_RESULTS_DIR / f"screenshot-{pytest.current_test_name}.png"
+        page.screenshot(path=str(screenshot_path))
+        print(f"Screenshot saved to: {screenshot_path}")
 
 @pytest.fixture(scope="session")
 def base_url() -> str:
@@ -28,23 +74,22 @@ def home_page(page: Page, base_url: str) -> HomePage:
 
 @pytest.fixture(scope="function")
 def user_login(page: Page, base_url: str, request) -> Generator[None, None, None]:
-    """Log in once and reuse the session for all tests.
-    
-    This fixture will save the authentication state after the first login
-    and restore it for subsequent tests.
-    """
-    state_file = "auth_state.json"
+    """Log in once and reuse the session for all tests."""
+    state_file = TEST_RESULTS_DIR / "auth_state.json"
     home_page = HomePage(page)
     
+    # Set test name for better error reporting
+    pytest.current_test_name = request.node.name
+    
     # Try to restore the session if it exists
-    if os.path.exists(state_file) and not request.config.getoption("--no-restore-session"):
+    if state_file.exists() and not request.config.getoption("--no-restore-session"):
         print("Restoring session from state file...")
-        home_page.restore_storage_state(state_file)
+        home_page.restore_storage_state(str(state_file))
         home_page.load(base_url)
         
         # Verify we're still logged in
         try:
-            expect(page).to_have_url(re.compile(r'.*overview\.htm$'))
+            expect(page).to_have_url(re.compile(r'.*overview\\.htm$'))
             print("Successfully restored session")
             yield
             return
@@ -56,7 +101,7 @@ def user_login(page: Page, base_url: str, request) -> Generator[None, None, None
     home_page.user_log_in()
     
     # Save the authentication state for future tests
-    home_page.save_storage_state(state_file)
+    home_page.save_storage_state(str(state_file))
     print("Saved new session state")
     
     yield
@@ -64,10 +109,18 @@ def user_login(page: Page, base_url: str, request) -> Generator[None, None, None
     # Clean up after test if needed
     if request.config.getoption("--cleanup-session"):
         try:
-            os.remove(state_file)
+            state_file.unlink()
             print("Cleaned up session state file")
         except Exception as e:
             print(f"Failed to clean up session state: {e}")
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Track test failures for screenshots."""
+    outcome = yield
+    result = outcome.get_result()
+    setattr(pytest, "test_failed", result.failed)
+    setattr(pytest, "current_test_name", item.nodeid.split("::")[-1])
 
 @pytest.fixture
 def bill_pay_page(page: Page) -> BillPay:
