@@ -1,301 +1,165 @@
 pipeline {
-    agent any
-
-    options {
-        timeout(time: 1, unit: 'HOURS')
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.42.1-jammy'
+            args '-v ${WORKSPACE}:/workspace -w /workspace --ipc=host --shm-size=2g -u root'
+            reuseNode true
+        }
     }
 
     environment {
-        DOCKER_COMPOSE = 'docker compose'
+        BASE_URL = 'https://parabank.parasoft.com/parabank/'
+        WORKSPACE = '/workspace'
+        PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
+        PASSWORD = credentials('PARABANK_PASSWORD')
+        PYTHONUNBUFFERED = '1'
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
-        PARA_BANK_PASSWORD = credentials('PARABANK_PASSWORD')
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
-        TIMESTAMP = "${new Date().format('yyyyMMdd_HHmmss')}"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Setup') {
             steps {
-                echo "=== Starting Checkout Stage ==="
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[
-                        url: "${REPO_URL}",
-                        credentialsId: 'github-credentials'
-                    ]]
-                ])
-                echo "✓ Code checked out successfully"
-                
-                sh '''
-                    echo "=== Git Information ==="
-                    git log -1 --pretty=format:"Commit: %h%nAuthor: %an%nDate: %ad%nMessage: %s"
-                    echo "=== Branch Information ==="
-                    git branch -v
-                '''
-            }
-        }
-
-        stage('Setup Environment Variables') {
-            steps {
-                echo "=== Setting Up Environment Variables ==="
-                writeFile file: '.env', text: """# ParaBank Test Environment Variables
-USERNAME=john
-PASSWORD=${PARA_BANK_PASSWORD}
-BASE_URL=https://parabank.parasoft.com/parabank/
-PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
-PYTHONUNBUFFERED=1
-PYTHONDONTWRITEBYTECODE=1
-DISPLAY=:99
-PLAYWRIGHT_HEADLESS=true"""
-                
-                sh '''
-                    if [ ! -f ".env" ]; then
-                        echo "ERROR: Failed to create .env file"
-                        echo "Current directory contents:"
-                        ls -la
-                        exit 1
-                    fi
-                    echo "✓ .env file created successfully"
-                    
-                    echo "=== Environment Variables ==="
-                    grep -v "PASSWORD" .env
-                '''
-            }
-        }
-
-        stage('Verify Docker Compose') {
-            steps {
-                echo "=== Verifying Docker Compose Configuration ==="
-                sh '''
-                    #!/bin/bash
+                sh '''#!/bin/bash -xe
                     set -e
-                    
-                    echo "Checking docker-compose.yml file..."
-                    if [ ! -f "docker-compose.yml" ]; then
-                        echo "ERROR: docker-compose.yml not found"
-                        echo "Current directory contents:"
-                        ls -la
-                        exit 1
-                    fi
-                    echo "✓ docker-compose.yml found"
-                    
-                    echo "Validating docker-compose.yml..."
-                    # First, verify the .env file is valid
-                    echo "Verifying .env file format..."
-                    if grep -q "if \[ ! -f" .env; then
-                        echo "ERROR: .env file contains shell script syntax"
-                        echo "Current .env contents:"
-                        cat .env
-                        exit 1
-                    fi
-                    
-                    # Then validate docker-compose.yml
-                    if ! ${DOCKER_COMPOSE} config; then
-                        echo "ERROR: Invalid docker-compose.yml configuration"
-                        echo "docker-compose.yml contents:"
-                        cat docker-compose.yml
-                        echo "=== Environment File Contents ==="
-                        cat .env
-                        exit 1
-                    fi
-                    echo "✓ docker-compose.yml is valid"
-                '''
-            }
-        }
-
-        stage('Validate Environment') {
-            steps {
-                echo "=== Starting Environment Validation ==="
-                sh '''
-                    #!/bin/bash
-                    set -e
+                    echo "=== Installing Python and pip ==="
+                    apt-get update || { echo "Failed to update apt"; exit 1; }
+                    apt-get install -y python3 python3-pip python3-venv git || { echo "Failed to install dependencies"; exit 1; }
                     
                     echo "=== System Information ==="
-                    echo "OS: $(uname -a)"
-                    echo "Memory: $(free -h)"
-                    echo "Disk Space: $(df -h .)"
+                    uname -a
+                    python3 --version
+                    python3 -m pip --version
                     
-                    echo "Checking Python version..."
-                    if ! python3 --version; then
-                        echo "ERROR: Python not found or not working"
-                        echo "Python path: $(which python3)"
-                        exit 1
+                    echo "=== Python Environment ==="
+                    python3 -c "import sys; print(f'Python Path: {sys.path}')"
+                    
+                    echo "=== Installing Python Dependencies ==="
+                    python3 -m pip install --upgrade pip setuptools wheel || { echo "Failed to upgrade pip"; exit 1; }
+                    
+                    # Install requirements if exists
+                    if [ -f "requirements.txt" ]; then
+                        echo "=== Installing requirements ==="
+                        python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; exit 1; }
                     fi
-                    echo "✓ Python version verified"
                     
-                    echo "Checking pip version..."
-                    if ! pip --version; then
-                        echo "ERROR: Pip not found or not working"
-                        echo "Pip path: $(which pip)"
-                        exit 1
-                    fi
-                    echo "✓ Pip version verified"
+                    # Install test dependencies
+                    echo "=== Installing Test Dependencies ==="
+                    python3 -m pip install pytest pytest-html pytest-xdist pytest-playwright pytest-rerunfailures || { echo "Failed to install test dependencies"; exit 1; }
                     
-                    echo "Checking Docker version..."
-                    if ! docker --version; then
-                        echo "ERROR: Docker not found or not working"
-                        echo "Docker path: $(which docker)"
-                        exit 1
-                    fi
-                    echo "✓ Docker version verified"
+                    echo "=== Installing Playwright ==="
+                    python3 -m playwright install --with-deps chromium || { echo "Failed to install Playwright"; exit 1; }
                     
-                    echo "Checking Docker Compose version..."
-                    if ! docker compose version; then
-                        echo "ERROR: Docker Compose not found or not working"
-                        echo "Docker Compose path: $(which docker-compose)"
-                        exit 1
-                    fi
-                    echo "✓ Docker Compose version verified"
-                    
-                    echo "=== Docker Information ==="
-                    docker info
+                    echo "=== Verifying Playwright ==="
+                    python3 -m playwright --version
                 '''
             }
         }
 
-        stage('Setup Environment') {
+        stage('Clone Repository') {
             steps {
-                echo "=== Starting Environment Setup ==="
-                sh '''
-                    #!/bin/bash
+                sh '''#!/bin/bash -xe
                     set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    echo "Creating test results directory..."
-                    if ! mkdir -p test-results; then
-                        echo "ERROR: Failed to create test results directory"
-                        echo "Current directory permissions:"
-                        ls -la
-                        exit 1
-                    fi
-                    chmod -R 755 test-results
-                    echo "✓ Test results directory created"
+                    echo "=== Current Workspace Contents ==="
+                    ls -la
                     
-                    echo "Setting up Python virtual environment..."
-                    if ! python3 -m venv venv; then
-                        echo "ERROR: Failed to create virtual environment"
-                        echo "Python version: $(python3 --version)"
-                        echo "Current directory: $(pwd)"
-                        exit 1
+                    echo "=== Cloning Repository ==="
+                    # Remove existing contents except .git if it exists
+                    if [ -d ".git" ]; then
+                        echo "Git repository exists, pulling latest changes..."
+                        git pull || { echo "Failed to pull latest changes"; exit 1; }
+                    else
+                        echo "No git repository found, cleaning workspace and cloning..."
+                        # Create a temporary directory for venv if it exists
+                        if [ -d "venv" ]; then
+                            mv venv /tmp/venv_backup || { echo "Failed to backup venv"; exit 1; }
+                        fi
+                        
+                        # Clean the workspace
+                        rm -rf .[!.]* * 2>/dev/null || true
+                        
+                        # Clone the repository with credentials
+                        git clone https://${GITHUB_CREDENTIALS}@github.com/kunaal-ai/para-bank-ui-automation.git . || { echo "Failed to clone repository"; exit 1; }
+                        
+                        # Restore venv if it existed
+                        if [ -d "/tmp/venv_backup" ]; then
+                            rm -rf venv
+                            mv /tmp/venv_backup venv || { echo "Failed to restore venv"; exit 1; }
+                        fi
                     fi
-                    . venv/bin/activate
-                    echo "✓ Virtual environment created and activated"
                     
-                    echo "Upgrading pip..."
-                    if ! pip install --upgrade pip; then
-                        echo "ERROR: Failed to upgrade pip"
-                        echo "Pip version: $(pip --version)"
-                        exit 1
-                    fi
-                    echo "✓ Pip upgraded"
-                    
-                    echo "Installing project dependencies..."
-                    if ! pip install -r requirements.txt; then
-                        echo "ERROR: Failed to install project dependencies"
-                        echo "Requirements file contents:"
-                        cat requirements.txt
-                        exit 1
-                    fi
-                    echo "✓ Project dependencies installed"
-                    
-                    echo "Installing project in development mode..."
-                    if ! pip install -e .; then
-                        echo "ERROR: Failed to install project in development mode"
-                        echo "Project structure:"
-                        ls -la
-                        exit 1
-                    fi
-                    echo "✓ Project installed in development mode"
+                    echo "=== Repository Contents After Clone ==="
+                    ls -la
                 '''
             }
         }
 
-        stage('Build Test Container') {
+        stage('Verify Repository') {
             steps {
-                echo "=== Starting Test Container Build ==="
-                sh '''
-                    #!/bin/bash
+                sh '''#!/bin/bash -xe
                     set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    echo "Building test container..."
-                    if ! ${DOCKER_COMPOSE} build test; then
-                        echo "ERROR: Failed to build test container"
-                        echo "=== Docker Build Logs ==="
-                        ${DOCKER_COMPOSE} build test --no-cache
-                        echo "=== Docker System Info ==="
-                        docker system df
-                        exit 1
-                    fi
-                    echo "✓ Test container built successfully"
+                    echo "=== Repository Structure ==="
+                    echo "Working directory: $(pwd)"
+                    echo "Contents:"
+                    ls -la
+                    
+                    # Check for required directories
+                    for dir in "tests" "src" "src/pages" "src/utils"; do
+                        if [ ! -d "$dir" ]; then
+                            echo "ERROR: Required directory '$dir' not found!"
+                            echo "Current directory contents:"
+                            ls -la
+                            exit 1
+                        fi
+                    done
+                    
+                    echo "=== Tests Directory Contents ==="
+                    ls -la tests/
+                    
+                    echo "=== Source Directory Contents ==="
+                    ls -la src/
                 '''
             }
         }
 
         stage('Run Tests') {
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
             steps {
-                echo "=== Starting Test Execution ==="
-                sh '''
-                    #!/bin/bash
+                sh '''#!/bin/bash -xe
                     set -e
+                    # Navigate to workspace
+                    cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    echo "Running test suite..."
-                    if ! ${DOCKER_COMPOSE} run --rm test pytest \
+                    # Create test results directory with proper permissions
+                    mkdir -p test-results
+                    chmod -R 777 test-results
+                    
+                    # Run tests
+                    echo "=== Running Tests ==="
+                    set +e
+                    python3 -m pytest \
+                        tests/test_*.py \
                         -v \
+                        --junitxml=test-results/junit.xml \
                         --html=test-results/report.html \
                         --self-contained-html \
-                        --junitxml=test-results/junit.xml \
-                        --capture=tee-sys \
-                        --log-cli-level=DEBUG \
-                        tests/; then
-                        echo "ERROR: Test execution failed"
-                        echo "=== Test Logs ==="
-                        cat test-results/report.html
-                        echo "=== Container Logs ==="
-                        ${DOCKER_COMPOSE} logs test
-                        echo "WARNING: Check test-results/report.html for detailed test results"
-                        exit 1
-                    fi
-                    echo "✓ All tests passed successfully!"
-                '''
-            }
-        }
-
-        stage('Generate Reports') {
-            steps {
-                echo "=== Starting Report Generation ==="
-                sh '''
-                    #!/bin/bash
+                        --reruns 1 \
+                        --browser=chromium
+                    TEST_RESULT=$?
                     set -e
                     
-                    echo "Checking test results directory..."
-                    if ! ls -la test-results/; then
-                        echo "ERROR: Test results directory not found"
-                        echo "Current directory contents:"
-                        ls -la
-                        exit 1
-                    fi
-                    echo "✓ Test results directory contents verified"
+                    # Ensure test results are accessible
+                    echo "=== Test Results Contents ==="
+                    ls -la test-results/
                     
-                    echo "Verifying report files..."
-                    if [ ! -f "test-results/report.html" ]; then
-                        echo "ERROR: HTML report not found"
-                        echo "Test results directory contents:"
-                        ls -la test-results/
-                        exit 1
-                    fi
-                    echo "✓ HTML report generated"
-                    
-                    if [ ! -f "test-results/junit.xml" ]; then
-                        echo "ERROR: JUnit XML report not found"
-                        echo "Test results directory contents:"
-                        ls -la test-results/
-                        exit 1
-                    fi
-                    echo "✓ JUnit XML report generated"
+                    # Exit with test result
+                    exit $TEST_RESULT
                 '''
             }
         }
@@ -303,44 +167,16 @@ PLAYWRIGHT_HEADLESS=true"""
 
     post {
         always {
-            echo "=== Starting Post-Build Actions ==="
+            echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
-            echo "Archiving test results..."
-            junit 'test-results/*.xml'
+            // Archive test results before cleaning workspace
+            junit 'test-results/junit.xml'
             archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
-            echo "✓ Test results archived"
+            archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
             
-            sh '''
-                echo "=== System State at Failure ==="
-                echo "Disk Space:"
-                df -h
-                echo "Memory Usage:"
-                free -h
-                echo "Docker Containers:"
-                docker ps -a
-                echo "Docker Images:"
-                docker images
-                echo "Docker System Info:"
-                docker system df
-            '''
-            
-            echo "Cleaning up workspace..."
+            // Clean workspace after archiving
             cleanWs()
-            echo "✓ Workspace cleaned"
-            
-            echo "=== Build Process Completed ==="
-        }
-        success {
-            echo "=== Build Succeeded ==="
-            echo "✓ All stages completed successfully"
-            echo "✓ Test reports are available in the build artifacts"
-        }
-        failure {
-            echo "=== Build Failed ==="
-            echo "ERROR: One or more stages failed"
-            echo "WARNING: Please check the build logs for details"
-            echo "WARNING: Look for ERROR messages to identify failures"
-            echo "WARNING: Check the archived artifacts for detailed logs and reports"
         }
     }
 }
