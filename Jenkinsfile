@@ -76,14 +76,13 @@ pipeline {
                         exit 0
                     fi
                     
-                    # Run safety scan (new command)
-                    echo "Running safety scan on requirements.txt..."
-                    safety scan \
-                        --file requirements.txt \
-                        --json \
-                        --output safety-report.json \
-                        --exit-code 1 || {
-                        echo "WARNING: Safety scan found vulnerabilities. Check safety-report.json for details."
+                    # Run pip-audit
+                    echo "Running pip-audit on requirements.txt..."
+                    pip-audit \
+                        --format json \
+                        -o safety-report.json \
+                        --requirement requirements.txt || {
+                        echo "WARNING: pip-audit found vulnerabilities. Check safety-report.json for details."
                         exit 1
                     }
                     

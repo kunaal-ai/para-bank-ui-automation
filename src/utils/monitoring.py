@@ -7,43 +7,64 @@ Prometheus and Grafana monitoring services.
 """
 
 import argparse
-import os
-import subprocess
+import subprocess  # nosec B404
 import sys
+import shlex
+
 
 def run_command(command, check=True):
-    """Run a shell command and return the output"""
+    """Run a command and return the output
+    
+    Args:
+        command (str): Command to run
+        check (bool): Whether to check the return code
+        
+    Returns:
+        str: Command output or None if failed
+    """
     try:
-        result = subprocess.run(command, shell=True, check=check, 
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True)
+        # Split command into list of arguments
+        if isinstance(command, str):
+            command = shlex.split(command)
+            
+        result = subprocess.run(  # nosec B603
+            command,
+            check=check,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
         return result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
         print(f"Error output: {e.stderr}")
         return None
 
+
 def check_docker_installed():
     """Check if Docker is installed"""
-    return run_command("docker --version", check=False) is not None
+    return run_command(["docker", "--version"], check=False) is not None
+
 
 def check_docker_compose_installed():
     """Check if Docker Compose is installed"""
     # Try docker-compose command (older versions)
-    if run_command("docker-compose --version", check=False) is not None:
+    if run_command(["docker-compose", "--version"], check=False) is not None:
         return True
     # Try docker compose command (newer versions)
-    if run_command("docker compose version", check=False) is not None:
+    if run_command(["docker", "compose", "version"], check=False) is not None:
         return True
     return False
+
 
 def get_docker_compose_command():
     """Get the appropriate docker-compose command"""
     # Check if new style 'docker compose' works
-    if run_command("docker compose version", check=False) is not None:
-        return "docker compose"
+    if run_command(["docker", "compose", "version"], check=False) is not None:
+        return ["docker", "compose"]
     # Fall back to old style 'docker-compose'
-    return "docker-compose"
+    return ["docker-compose"]
+
 
 def start_monitoring():
     """Start Prometheus and Grafana using docker-compose"""
@@ -61,12 +82,13 @@ def start_monitoring():
     
     print("Starting Prometheus and Grafana...")
     compose_cmd = get_docker_compose_command()
-    run_command(f"{compose_cmd} up -d")
+    run_command(compose_cmd + ["up", "-d"])
     print("\nMonitoring services started!")
     print("Prometheus UI available at: http://localhost:9090")
     print("Grafana UI available at: http://localhost:3000")
     print("Grafana default credentials: admin/admin")
     return True
+
 
 def stop_monitoring():
     """Stop Prometheus and Grafana using docker-compose"""
@@ -81,9 +103,10 @@ def stop_monitoring():
     
     print("Stopping Prometheus and Grafana...")
     compose_cmd = get_docker_compose_command()
-    run_command(f"{compose_cmd} down")
+    run_command(compose_cmd + ["down"])
     print("Monitoring services stopped.")
     return True
+
 
 def check_status():
     """Check the status of Prometheus and Grafana containers"""
@@ -98,28 +121,28 @@ def check_status():
     
     print("Checking monitoring services status...")
     compose_cmd = get_docker_compose_command()
-    output = run_command(f"{compose_cmd} ps")
+    output = run_command(compose_cmd + ["ps"])
     if output:
         print(output)
     else:
         print("Failed to get status or no containers are running.")
     return True
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Manage Prometheus and Grafana monitoring services")
+    parser = argparse.ArgumentParser(
+        description="Manage Prometheus and Grafana monitoring services"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
-    # Start command
-    start_parser = subparsers.add_parser("start", help="Start monitoring services")
-    
-    # Stop command
-    stop_parser = subparsers.add_parser("stop", help="Stop monitoring services")
-    
-    # Status command
-    status_parser = subparsers.add_parser("status", help="Check status of monitoring services")
-    
-    # Add a standalone option for checking Docker installation
-    check_parser = subparsers.add_parser("check-docker", help="Check if Docker and Docker Compose are installed")
+    # Add command parsers
+    subparsers.add_parser("start", help="Start monitoring services")
+    subparsers.add_parser("stop", help="Stop monitoring services")
+    subparsers.add_parser("status", help="Check status of monitoring services")
+    subparsers.add_parser(
+        "check-docker",
+        help="Check if Docker and Docker Compose are installed"
+    )
     
     args = parser.parse_args()
     
@@ -140,20 +163,32 @@ def main():
         compose_installed = check_docker_compose_installed()
         
         print("Docker installation status:")
-        print(f"  Docker: {'Installed' if docker_installed else 'Not installed'}")
-        print(f"  Docker Compose: {'Installed' if compose_installed else 'Not installed'}")
+        print(
+            f"  Docker: {'Installed' if docker_installed else 'Not installed'}"
+        )
+        print(
+            f"  Docker Compose: "
+            f"{'Installed' if compose_installed else 'Not installed'}"
+        )
         
         if not docker_installed:
-            print("\nTo install Docker, visit: https://docs.docker.com/get-docker/")
+            print(
+                "\nTo install Docker, visit: "
+                "https://docs.docker.com/get-docker/"
+            )
             sys.exit(1)
             
         if not compose_installed:
-            print("\nTo install Docker Compose, visit: https://docs.docker.com/compose/install/")
+            print(
+                "\nTo install Docker Compose, visit: "
+                "https://docs.docker.com/compose/install/"
+            )
             sys.exit(1)
             
         print("\nYour system is ready to run Prometheus and Grafana!")
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

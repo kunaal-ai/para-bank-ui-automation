@@ -1,0 +1,15 @@
+# Bandit configuration file
+
+skips:
+  - B101  # Skip assert warnings
+severity: LOW
+confidence: LOW
+exclude_dirs:
+  - venv
+  - .git
+  - node_modules
+include_dirs:
+  - src
+  - tests
+output_format: json
+output_file: bandit-report.json 
