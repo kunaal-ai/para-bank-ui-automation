@@ -5,20 +5,16 @@ pipeline {
         DOCKER_COMPOSE = 'docker compose'
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
+        PARA_BANK_PASSWORD = credentials('PARABANK_PASSWORD')
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
-        RED = '\033[0;31m'
-        GREEN = '\033[0;32m'
-        YELLOW = '\033[1;33m'
-        BLUE = '\033[0;34m'
-        NC = '\033[0m'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo "${BLUE}=== Starting Checkout Stage ===${NC}"
+                echo "=== Starting Checkout Stage ==="
                 cleanWs()
-                echo "${GREEN}✓ Workspace cleaned${NC}"
+                echo "✓ Workspace cleaned"
                 
                 checkout([
                     $class: 'GitSCM',
@@ -28,115 +24,144 @@ pipeline {
                         credentialsId: 'github-credentials'
                     ]]
                 ])
-                echo "${GREEN}✓ Code checked out successfully${NC}"
+                echo "✓ Code checked out successfully"
+            }
+        }
+
+        stage('Setup Environment Variables') {
+            steps {
+                echo "=== Setting Up Environment Variables ==="
+                sh '''
+                    #!/bin/bash
+                    set -e
+                    
+                    echo "Creating .env file..."
+                    cat > .env << EOL
+                    # ParaBank Test Environment Variables
+                    USERNAME=john
+                    PASSWORD=${PARA_BANK_PASSWORD}
+                    BASE_URL=https://parabank.parasoft.com/parabank/
+                    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright/
+                    PYTHONUNBUFFERED=1
+                    PYTHONDONTWRITEBYTECODE=1
+                    DISPLAY=:99
+                    PLAYWRIGHT_HEADLESS=true
+                    EOL
+                    
+                    if [ ! -f ".env" ]; then
+                        echo "ERROR: Failed to create .env file"
+                        exit 1
+                    fi
+                    echo "✓ .env file created successfully"
+                '''
             }
         }
 
         stage('Validate Environment') {
             steps {
-                echo "${BLUE}=== Starting Environment Validation ===${NC}"
+                echo "=== Starting Environment Validation ==="
                 sh '''
                     #!/bin/bash
                     set -e
                     
                     echo "Checking Python version..."
                     if ! python3 --version; then
-                        echo "${RED}✗ Python not found or not working${NC}"
+                        echo "ERROR: Python not found or not working"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Python version verified${NC}"
+                    echo "✓ Python version verified"
                     
                     echo "Checking pip version..."
                     if ! pip --version; then
-                        echo "${RED}✗ Pip not found or not working${NC}"
+                        echo "ERROR: Pip not found or not working"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Pip version verified${NC}"
+                    echo "✓ Pip version verified"
                     
                     echo "Checking Docker version..."
                     if ! docker --version; then
-                        echo "${RED}✗ Docker not found or not working${NC}"
+                        echo "ERROR: Docker not found or not working"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Docker version verified${NC}"
+                    echo "✓ Docker version verified"
                     
                     echo "Checking Docker Compose version..."
                     if ! docker compose version; then
-                        echo "${RED}✗ Docker Compose not found or not working${NC}"
+                        echo "ERROR: Docker Compose not found or not working"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Docker Compose version verified${NC}"
+                    echo "✓ Docker Compose version verified"
                 '''
             }
         }
 
         stage('Setup Environment') {
             steps {
-                echo "${BLUE}=== Starting Environment Setup ===${NC}"
+                echo "=== Starting Environment Setup ==="
                 sh '''
                     #!/bin/bash
                     set -e
                     
                     echo "Creating test results directory..."
                     if ! mkdir -p test-results; then
-                        echo "${RED}✗ Failed to create test results directory${NC}"
+                        echo "ERROR: Failed to create test results directory"
                         exit 1
                     fi
                     chmod -R 777 test-results
-                    echo "${GREEN}✓ Test results directory created${NC}"
+                    echo "✓ Test results directory created"
                     
                     echo "Setting up Python virtual environment..."
                     if ! python3 -m venv venv; then
-                        echo "${RED}✗ Failed to create virtual environment${NC}"
+                        echo "ERROR: Failed to create virtual environment"
                         exit 1
                     fi
                     . venv/bin/activate
-                    echo "${GREEN}✓ Virtual environment created and activated${NC}"
+                    echo "✓ Virtual environment created and activated"
                     
                     echo "Upgrading pip..."
                     if ! pip install --upgrade pip; then
-                        echo "${RED}✗ Failed to upgrade pip${NC}"
+                        echo "ERROR: Failed to upgrade pip"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Pip upgraded${NC}"
+                    echo "✓ Pip upgraded"
                     
                     echo "Installing project dependencies..."
                     if ! pip install -r requirements.txt; then
-                        echo "${RED}✗ Failed to install project dependencies${NC}"
+                        echo "ERROR: Failed to install project dependencies"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Project dependencies installed${NC}"
+                    echo "✓ Project dependencies installed"
                     
                     echo "Installing project in development mode..."
                     if ! pip install -e .; then
-                        echo "${RED}✗ Failed to install project in development mode${NC}"
+                        echo "ERROR: Failed to install project in development mode"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Project installed in development mode${NC}"
+                    echo "✓ Project installed in development mode"
                 '''
             }
         }
 
         stage('Build Test Container') {
             steps {
-                echo "${BLUE}=== Starting Test Container Build ===${NC}"
+                echo "=== Starting Test Container Build ==="
                 sh '''
                     #!/bin/bash
                     set -e
                     
                     echo "Building test container..."
                     if ! ${DOCKER_COMPOSE} build test; then
-                        echo "${RED}✗ Failed to build test container${NC}"
+                        echo "ERROR: Failed to build test container"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Test container built successfully${NC}"
+                    echo "✓ Test container built successfully"
                 '''
             }
         }
 
         stage('Run Tests') {
             steps {
-                echo "${BLUE}=== Starting Test Execution ===${NC}"
+                echo "=== Starting Test Execution ==="
                 sh '''
                     #!/bin/bash
                     set -e
@@ -148,41 +173,41 @@ pipeline {
                         --self-contained-html \
                         --junitxml=test-results/junit.xml \
                         tests/; then
-                        echo "${RED}✗ Test execution failed${NC}"
-                        echo "${YELLOW}Check test-results/report.html for detailed test results${NC}"
+                        echo "ERROR: Test execution failed"
+                        echo "WARNING: Check test-results/report.html for detailed test results"
                         exit 1
                     fi
-                    echo "${GREEN}✓ All tests passed successfully!${NC}"
+                    echo "✓ All tests passed successfully!"
                 '''
             }
         }
 
         stage('Generate Reports') {
             steps {
-                echo "${BLUE}=== Starting Report Generation ===${NC}"
+                echo "=== Starting Report Generation ==="
                 sh '''
                     #!/bin/bash
                     set -e
                     
                     echo "Checking test results directory..."
                     if ! ls -la test-results/; then
-                        echo "${RED}✗ Test results directory not found${NC}"
+                        echo "ERROR: Test results directory not found"
                         exit 1
                     fi
-                    echo "${GREEN}✓ Test results directory contents verified${NC}"
+                    echo "✓ Test results directory contents verified"
                     
                     echo "Verifying report files..."
                     if [ ! -f "test-results/report.html" ]; then
-                        echo "${RED}✗ HTML report not found${NC}"
+                        echo "ERROR: HTML report not found"
                         exit 1
                     fi
-                    echo "${GREEN}✓ HTML report generated${NC}"
+                    echo "✓ HTML report generated"
                     
                     if [ ! -f "test-results/junit.xml" ]; then
-                        echo "${RED}✗ JUnit XML report not found${NC}"
+                        echo "ERROR: JUnit XML report not found"
                         exit 1
                     fi
-                    echo "${GREEN}✓ JUnit XML report generated${NC}"
+                    echo "✓ JUnit XML report generated"
                 '''
             }
         }
@@ -190,29 +215,29 @@ pipeline {
 
     post {
         always {
-            echo "${BLUE}=== Starting Post-Build Actions ===${NC}"
+            echo "=== Starting Post-Build Actions ==="
             
             echo "Archiving test results..."
             junit 'test-results/*.xml'
             archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
-            echo "${GREEN}✓ Test results archived${NC}"
+            echo "✓ Test results archived"
             
             echo "Cleaning up workspace..."
             cleanWs()
-            echo "${GREEN}✓ Workspace cleaned${NC}"
+            echo "✓ Workspace cleaned"
             
-            echo "${BLUE}=== Build Process Completed ===${NC}"
+            echo "=== Build Process Completed ==="
         }
         success {
-            echo "${GREEN}=== Build Succeeded ===${NC}"
-            echo "${GREEN}✓ All stages completed successfully${NC}"
-            echo "${GREEN}✓ Test reports are available in the build artifacts${NC}"
+            echo "=== Build Succeeded ==="
+            echo "✓ All stages completed successfully"
+            echo "✓ Test reports are available in the build artifacts"
         }
         failure {
-            echo "${RED}=== Build Failed ===${NC}"
-            echo "${RED}✗ One or more stages failed${NC}"
-            echo "${YELLOW}Please check the build logs for details${NC}"
-            echo "${YELLOW}Look for ${RED}✗${YELLOW} symbols to identify failures${NC}"
+            echo "=== Build Failed ==="
+            echo "ERROR: One or more stages failed"
+            echo "WARNING: Please check the build logs for details"
+            echo "WARNING: Look for ERROR messages to identify failures"
         }
     }
 }
