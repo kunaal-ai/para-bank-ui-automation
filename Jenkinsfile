@@ -16,6 +16,7 @@ pipeline {
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
+        TEST_RESULTS_DIR = 'test-results'
     }
 
     stages {
@@ -136,27 +137,41 @@ pipeline {
                     # Navigate to workspace
                     cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    # Create test results directory with proper permissions
-                    mkdir -p test-results
-                    chmod -R 777 test-results
+                    # Create and set permissions for test results directory
+                    echo "=== Setting up test results directory ==="
+                    rm -rf "${TEST_RESULTS_DIR}"
+                    mkdir -p "${TEST_RESULTS_DIR}"
+                    chmod -R 777 "${TEST_RESULTS_DIR}"
                     
-                    # Run tests
+                    # Run tests with explicit JUnit XML output
                     echo "=== Running Tests ==="
                     set +e
                     python3 -m pytest \
                         tests/test_*.py \
                         -v \
-                        --junitxml=test-results/junit.xml \
-                        --html=test-results/report.html \
+                        --junitxml="${TEST_RESULTS_DIR}/junit.xml" \
+                        --html="${TEST_RESULTS_DIR}/report.html" \
                         --self-contained-html \
                         --reruns 1 \
                         --browser=chromium
                     TEST_RESULT=$?
                     set -e
                     
-                    # Ensure test results are accessible
+                    # Verify test results were generated
+                    echo "=== Verifying Test Results ==="
+                    if [ ! -f "${TEST_RESULTS_DIR}/junit.xml" ]; then
+                        echo "ERROR: JUnit XML report was not generated!"
+                        echo "Test results directory contents:"
+                        ls -la "${TEST_RESULTS_DIR}/"
+                        exit 1
+                    fi
+                    
+                    # Display test results directory contents
                     echo "=== Test Results Contents ==="
-                    ls -la test-results/
+                    ls -la "${TEST_RESULTS_DIR}/"
+                    
+                    # Ensure proper permissions on test result files
+                    chmod -R 755 "${TEST_RESULTS_DIR}"
                     
                     # Exit with test result
                     exit $TEST_RESULT
@@ -169,11 +184,24 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
+            // Verify test results exist before archiving
+            sh '''#!/bin/bash
+                echo "=== Verifying Test Results Before Archiving ==="
+                if [ -f "${TEST_RESULTS_DIR}/junit.xml" ]; then
+                    echo "Found JUnit XML report"
+                    cat "${TEST_RESULTS_DIR}/junit.xml"
+                else
+                    echo "WARNING: JUnit XML report not found!"
+                    echo "Test results directory contents:"
+                    ls -la "${TEST_RESULTS_DIR}/"
+                fi
+            '''
+            
             // Archive test results before cleaning workspace
-            junit 'test-results/junit.xml'
-            archiveArtifacts artifacts: 'test-results/*.html', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
+            junit "${TEST_RESULTS_DIR}/junit.xml"
+            archiveArtifacts artifacts: "${TEST_RESULTS_DIR}/*.html", allowEmptyArchive: true
+            archiveArtifacts artifacts: "**/screenshots/*.png", allowEmptyArchive: true
+            archiveArtifacts artifacts: "**/playwright-traces/*.zip", allowEmptyArchive: true
             
             // Clean workspace after archiving
             cleanWs()
