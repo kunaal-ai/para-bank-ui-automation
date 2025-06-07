@@ -76,10 +76,14 @@ pipeline {
                         exit 0
                     fi
                     
-                    # Run safety check
-                    echo "Running safety check on requirements.txt..."
-                    safety check -r requirements.txt --json > safety-report.json || {
-                        echo "WARNING: Safety check found vulnerabilities. Check safety-report.json for details."
+                    # Run safety scan (new command)
+                    echo "Running safety scan on requirements.txt..."
+                    safety scan \
+                        --file requirements.txt \
+                        --json \
+                        --output safety-report.json \
+                        --exit-code 1 || {
+                        echo "WARNING: Safety scan found vulnerabilities. Check safety-report.json for details."
                         exit 1
                     }
                     
