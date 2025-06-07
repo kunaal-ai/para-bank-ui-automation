@@ -201,26 +201,24 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
-            // Archive test results before any cleanup
+            // Copy test results to workspace root before archiving
             sh '''#!/bin/bash
-                echo "=== Archiving Test Results ==="
-                if [ -f "${TEST_RESULTS_DIR}/junit.xml" ]; then
-                    echo "Found JUnit XML report"
-                    echo "=== JUnit XML Report Contents ==="
-                    cat "${TEST_RESULTS_DIR}/junit.xml"
+                echo "=== Copying Test Results to Workspace Root ==="
+                if [ -d "${TEST_RESULTS_DIR}" ]; then
+                    cp -r "${TEST_RESULTS_DIR}"/* "${WORKSPACE}/" || true
+                    echo "Test results copied to workspace root"
+                    ls -la "${WORKSPACE}/"
                 else
-                    echo "WARNING: JUnit XML report not found!"
-                    echo "Test results directory contents:"
-                    ls -la "${TEST_RESULTS_DIR}/"
+                    echo "WARNING: Test results directory not found!"
                 fi
             '''
             
             // Archive test results
-            junit "${TEST_RESULTS_DIR}/junit.xml"
-            archiveArtifacts artifacts: "${TEST_RESULTS_DIR}/*.html", allowEmptyArchive: true
-            archiveArtifacts artifacts: "**/screenshots/*.png", allowEmptyArchive: true
-            archiveArtifacts artifacts: "**/playwright-traces/*.zip", allowEmptyArchive: true
-            archiveArtifacts artifacts: "${TEST_RESULTS_DIR}/videos/*.webm", allowEmptyArchive: true
+            junit 'junit.xml'
+            archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'videos/*.webm', allowEmptyArchive: true
             
             // Clean workspace after archiving is complete
             cleanWs()
