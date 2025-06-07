@@ -16,7 +16,6 @@ pipeline {
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
-        TEST_RESULTS_DIR = 'test-results'
     }
 
     stages {
@@ -137,61 +136,16 @@ pipeline {
                     # Navigate to workspace
                     cd "${WORKSPACE}" || { echo "Failed to change to workspace directory"; exit 1; }
                     
-                    # Create and set permissions for test results directory
-                    echo "=== Setting up test results directory ==="
-                    rm -rf "${TEST_RESULTS_DIR}"
-                    mkdir -p "${TEST_RESULTS_DIR}"
-                    chmod -R 777 "${TEST_RESULTS_DIR}"
-                    
-                    # List test files to verify they exist
-                    echo "=== Available Test Files ==="
-                    ls -la tests/test_*.py
-                    
-                    # Run tests with explicit JUnit XML output and debug logging
+                    # Run tests
                     echo "=== Running Tests ==="
-                    set +e
                     python3 -m pytest \
                         tests/test_*.py \
                         -v \
-                        --junitxml="${TEST_RESULTS_DIR}/junit.xml" \
-                        --html="${TEST_RESULTS_DIR}/report.html" \
+                        --junitxml=junit.xml \
+                        --html=report.html \
                         --self-contained-html \
                         --reruns 1 \
-                        --browser=chromium \
-                        --capture=tee-sys \
-                        --log-cli-level=DEBUG
-                    TEST_RESULT=$?
-                    set -e
-                    
-                    # Debug information
-                    echo "=== Debug Information ==="
-                    echo "Test Result Code: $TEST_RESULT"
-                    echo "Current Directory: $(pwd)"
-                    echo "Python Path: $PYTHONPATH"
-                    echo "Test Results Directory: ${TEST_RESULTS_DIR}"
-                    
-                    # Verify test results were generated
-                    echo "=== Verifying Test Results ==="
-                    if [ ! -f "${TEST_RESULTS_DIR}/junit.xml" ]; then
-                        echo "ERROR: JUnit XML report was not generated!"
-                        echo "Test results directory contents:"
-                        ls -la "${TEST_RESULTS_DIR}/"
-                        echo "=== Python Environment ==="
-                        python3 -c "import sys; print('\\n'.join(sys.path))"
-                        echo "=== Installed Packages ==="
-                        pip list
-                        exit 1
-                    fi
-                    
-                    # Display test results directory contents
-                    echo "=== Test Results Contents ==="
-                    ls -la "${TEST_RESULTS_DIR}/"
-                    
-                    # Ensure proper permissions on test result files
-                    chmod -R 755 "${TEST_RESULTS_DIR}"
-                    
-                    # Exit with test result
-                    exit $TEST_RESULT
+                        --browser=chromium
                 '''
             }
         }
@@ -201,26 +155,10 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
-            // Copy test results to workspace root before archiving
-            sh '''#!/bin/bash
-                echo "=== Copying Test Results to Workspace Root ==="
-                if [ -d "${TEST_RESULTS_DIR}" ]; then
-                    cp -r "${TEST_RESULTS_DIR}"/* "${WORKSPACE}/" || true
-                    echo "Test results copied to workspace root"
-                    ls -la "${WORKSPACE}/"
-                else
-                    echo "WARNING: Test results directory not found!"
-                fi
-            '''
+            // Simply archive the test results
+            archiveArtifacts artifacts: 'junit.xml,report.html', allowEmptyArchive: true
             
-            // Archive test results
-            junit 'junit.xml'
-            archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/screenshots/*.png', allowEmptyArchive: true
-            archiveArtifacts artifacts: '**/playwright-traces/*.zip', allowEmptyArchive: true
-            archiveArtifacts artifacts: 'videos/*.webm', allowEmptyArchive: true
-            
-            // Clean workspace after archiving is complete
+            // Clean workspace after archiving
             cleanWs()
         }
     }
