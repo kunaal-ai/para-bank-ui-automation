@@ -15,17 +15,10 @@ fi
 
 # Run tests
 echo "Running tests..."
-python3 -m pytest \
-    tests/test_*.py \
-    -v \
-    --junitxml=junit.xml \
-    --html report.html \
-    --self-contained-html
+pytest --junitxml=test-results/junit.xml --html=test-results/report.html --self-contained-html
 
-# Check if reports were generated
-if [ -f "junit.xml" ] && [ -f "report.html" ]; then
-    echo "✓ Test reports generated successfully"
-else
+# Verify test reports were generated
+if [ ! -f "test-results/junit.xml" ] || [ ! -f "test-results/report.html" ]; then
     echo "ERROR: Test reports not generated"
     exit 1
 fi

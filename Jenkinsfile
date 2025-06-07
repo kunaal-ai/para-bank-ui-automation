@@ -64,47 +64,40 @@ pipeline {
             }
         }
 
-        stage('Security Scan: Dependencies') {
+        stage('Dependency Scan') {
             steps {
-                sh '''#!/bin/bash -xe
-                    set -e
+                sh '''
                     echo "=== Running Dependency Security Scan ==="
-                    
-                    # Check if requirements.txt exists
-                    if [ ! -f "requirements.txt" ]; then
-                        echo "WARNING: requirements.txt not found. Skipping dependency scan."
-                        exit 0
+                    if [ ! -f requirements.txt ]; then
+                        echo "ERROR: requirements.txt not found"
+                        exit 1
                     fi
                     
-                    # Run pip-audit
+                    echo "Installing security tools..."
+                    pip install --no-cache-dir bandit pip-audit
+                    
                     echo "Running pip-audit on requirements.txt..."
-                    pip-audit \
-                        --format json \
-                        -o safety-report.json \
-                        --requirement requirements.txt || {
+                    pip-audit --format json -o safety-report.json --requirement requirements.txt || {
                         echo "WARNING: pip-audit found vulnerabilities. Check safety-report.json for details."
                         exit 1
                     }
-                    
-                    echo "=== Dependency Security Scan Complete ==="
                 '''
             }
         }
 
-        stage('Security Scan: Code') {
+        stage('Code Scan') {
             steps {
-                sh '''#!/bin/bash -xe
-                    set -e
+                sh '''
                     echo "=== Running Code Security Scan ==="
                     
-                    # Run bandit scan
-                    echo "Running bandit scan on Python files..."
-                    bandit -r src/ tests/ -f json -o bandit-report.json -s ${BANDIT_SEVERITY_THRESHOLD} -c ${BANDIT_CONFIDENCE_THRESHOLD} || {
-                        echo "WARNING: Bandit scan found security issues. Check bandit-report.json for details."
+                    echo "Installing security tools..."
+                    pip install --no-cache-dir bandit
+                    
+                    echo "Running Bandit scan..."
+                    bandit -r src/ tests/ -f json -o bandit-report.json || {
+                        echo "WARNING: Bandit found security issues. Check bandit-report.json for details."
                         exit 1
                     }
-                    
-                    echo "=== Code Security Scan Complete ==="
                 '''
             }
         }
