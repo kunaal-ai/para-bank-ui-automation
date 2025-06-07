@@ -127,7 +127,7 @@ The project uses Jenkins for continuous integration. The pipeline:
 4. Generates and archives test reports
 5. Collects Prometheus metrics
 
-![Jenkins Pipeline](readme_assets/jenkins_pipeline.png)
+![Jenkins Pipeline](docs/readme_assets/jenkins_pipeline.png)
 
 ## Metrics and Monitoring
 
@@ -142,17 +142,7 @@ The project integrates with Prometheus and Grafana for test monitoring:
 - Test duration analysis
 - Failure rate monitoring
 
-## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 # Local Development & Testing
 
