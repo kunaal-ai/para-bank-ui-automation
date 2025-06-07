@@ -16,6 +16,9 @@ pipeline {
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
+        // Security scan thresholds
+        BANDIT_SEVERITY_THRESHOLD = 'HIGH'
+        BANDIT_CONFIDENCE_THRESHOLD = 'HIGH'
     }
 
     stages {
@@ -53,6 +56,52 @@ pipeline {
                     
                     echo "=== Verifying Playwright ==="
                     python3 -m playwright --version
+
+                    # Install security scanning tools
+                    echo "=== Installing Security Tools ==="
+                    python3 -m pip install bandit safety || { echo "Failed to install security tools"; exit 1; }
+                '''
+            }
+        }
+
+        stage('Security Scan: Dependencies') {
+            steps {
+                sh '''#!/bin/bash -xe
+                    set -e
+                    echo "=== Running Dependency Security Scan ==="
+                    
+                    # Check if requirements.txt exists
+                    if [ ! -f "requirements.txt" ]; then
+                        echo "WARNING: requirements.txt not found. Skipping dependency scan."
+                        exit 0
+                    fi
+                    
+                    # Run safety check
+                    echo "Running safety check on requirements.txt..."
+                    safety check -r requirements.txt --json > safety-report.json || {
+                        echo "WARNING: Safety check found vulnerabilities. Check safety-report.json for details."
+                        exit 1
+                    }
+                    
+                    echo "=== Dependency Security Scan Complete ==="
+                '''
+            }
+        }
+
+        stage('Security Scan: Code') {
+            steps {
+                sh '''#!/bin/bash -xe
+                    set -e
+                    echo "=== Running Code Security Scan ==="
+                    
+                    # Run bandit scan
+                    echo "Running bandit scan on Python files..."
+                    bandit -r src/ tests/ -f json -o bandit-report.json -s ${BANDIT_SEVERITY_THRESHOLD} -c ${BANDIT_CONFIDENCE_THRESHOLD} || {
+                        echo "WARNING: Bandit scan found security issues. Check bandit-report.json for details."
+                        exit 1
+                    }
+                    
+                    echo "=== Code Security Scan Complete ==="
                 '''
             }
         }
@@ -155,8 +204,8 @@ pipeline {
         always {
             echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
             
-            // Simply archive the test results
-            archiveArtifacts artifacts: 'junit.xml,report.html', allowEmptyArchive: true
+            // Archive test results and security reports
+            archiveArtifacts artifacts: 'junit.xml,report.html,safety-report.json,bandit-report.json', allowEmptyArchive: true
             
             // Clean workspace after archiving
             cleanWs()

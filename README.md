@@ -1,269 +1,96 @@
-# para-bank-ui-automation
-Banking domain: Python, Rspec, Playwright, CI/CD Jenkins, HTML reports, Prometheus, Grafana
-
 # ParaBank UI Automation
 
-Automated UI tests for the ParaBank application using Playwright and Python.
+Automated UI testing for ParaBank using Playwright, Python, and Jenkins CI/CD.
+
+## Technologies
+
+### Testing & Automation
+- 🐍 **Python** - Core programming language
+- 🎭 **Playwright** - Modern web testing framework
+- 📊 **Pytest** - Test runner and framework
+- 🏗️ **Page Object Model** - Design pattern for test maintenance
+
+### CI/CD & Infrastructure
+- 🔄 **Jenkins** - Continuous Integration/Deployment
+- 🐳 **Docker** - Containerization
+- 📦 **Docker Compose** - Multi-container orchestration
+
+### Monitoring & Reporting
+- 📈 **Prometheus** - Metrics collection
+- 📊 **Grafana** - Metrics visualization
+- 📝 **HTML Reports** - Test execution reports
+- 📋 **JUnit XML** - CI integration reports
+
+### Development Tools
+- 🐙 **Git** - Version control
+- 📦 **pip** - Package management
+- 🔍 **pytest-xdist** - Parallel test execution
+- 🎥 **Video Recording** - Failed test capture
+
+## Quick Start
+
+1. **Setup**
+   ```bash
+   git clone https://github.com/kunaal-ai/para-bank-ui-automation.git
+   cd para-bank-ui-automation
+   pip install -r requirements.txt
+   playwright install
+   ```
+
+2. **Run Tests**
+   ```bash
+   # Run all tests
+   pytest
+
+   # Run with browser UI
+   pytest --headed
+
+   # Run specific test
+   pytest tests/test_login.py
+   ```
+
+## Key Features
+
+- 🧪 Playwright-based UI testing
+- 📊 HTML and JUnit XML reports
+- 🔄 Jenkins CI/CD pipeline
+- 📈 Prometheus metrics & Grafana dashboards
+- 🎥 Video recording for failed tests
+- 🔁 Automatic retry for flaky tests
 
 ## Project Structure
 
 ```
 .
-├── config
-│   ├── grafana
-│   │   └── provisioning
-│   │       ├── dashboards
-│   │       │   ├── dashboard.yml
-│   │       │   └── test_metrics_dashboard.json
-│   │       └── datasources
-│   │           └── prometheus.yml
-│   └── prometheus
-│       └── prometheus.yml
-├── conftest.py
-├── docker
-│   ├── Dockerfile
-│   ├── Dockerfile.jenkins
-│   └── Dockerfile.test
-├── docker-compose.yml
-├── docs
-│   └── readme_assets
-│       └── jenkins_pipeline.png
-├── Jenkinsfile
-├── pyproject.toml
-├── pytest.ini
-├── README.md
-├── requirements.txt
-├── scripts
-│   ├── run-tests.sh
-│   └── test-pipeline.sh
-├── setup.py
-├── src
-│   ├── __init__.py
-│   ├── pages
-│   │   ├── __init__.py
-│   │   ├── bill_pay_page.py
-│   │   ├── helper_pom
-│   │   │   └── payment_services_tab.py
-│   │   └── home_login_page.py
-│   └── utils
-│       ├── metrics_pusher.py
-│       └── monitoring.py
-└── tests
-    ├── __init__.py
-    ├── test_bill_pay.py
-    ├── test_home_login.py
-    └── test_login.py
+├── src/              # Source code
+│   ├── pages/       # Page Object Models
+│   └── utils/       # Utilities
+├── tests/           # Test files
+├── config/          # Configuration files
+├── docker/          # Docker configurations
+└── scripts/         # Helper scripts
 ```
 
-## Features
-
-- Automated UI testing using Playwright
-- Page Object Model design pattern
-- Jenkins CI/CD pipeline integration
-- HTML and JUnit XML test reports
-- Video recording for failed tests
-- Test retry mechanism for flaky tests
-- Prometheus metrics integration
-- Grafana dashboards for test monitoring
-
-## Prerequisites
-
-- Python 3.10+
-- Node.js (for Playwright)
-- Jenkins (for CI/CD)
-- Prometheus (for metrics)
-- Grafana (for visualization)
-
-## Quick Start
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/kunaal-ai/para-bank-ui-automation.git
-   cd para-bank-ui-automation
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   playwright install
-   ```
-
-3. Run tests:
-   ```bash
-   pytest
-   ```
-
-## Configuration
-
-### Environment Variables
+## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `BASE_URL` | Application base URL | https://parabank.parasoft.com/parabank/ |
-| `PASSWORD` | Test user password | - |
-| `PYTHONUNBUFFERED` | Real-time test output | 1 |
+| `BASE_URL` | Application URL | https://parabank.parasoft.com/parabank/ |
+| `PASSWORD` | Test password | - |
 
-### Test Configuration
+## Monitoring
 
-- Browser: Chromium
-- Headless Mode: Enabled in CI
-- Timeout: 30 seconds
-- Retry Failed Tests: 1 attempt
-
-### Test Artifacts
-
-The following artifacts are generated during test execution:
-- `report.html`: Detailed HTML test report
-- `junit.xml`: JUnit XML report for CI integration
-- `videos/*.webm`: Video recordings of test executions
-- `auth_state.json`: Authentication state for test sessions
-
-## CI/CD Pipeline
-
-The project uses Jenkins for continuous integration. The pipeline:
-1. Sets up the test environment
-2. Clones the repository
-3. Runs the test suite
-4. Generates and archives test reports
-5. Collects Prometheus metrics
-
-![Jenkins Pipeline](docs/readme_assets/jenkins_pipeline.png)
-
-## Metrics and Monitoring
-
-The project integrates with Prometheus and Grafana for test monitoring:
-
-### Prometheus Metrics
-- `test_execution_total`: Total number of test executions
-- `test_duration_seconds`: Test execution time in seconds
-
-### Grafana Dashboards
-- Test execution trends
-- Test duration analysis
-- Failure rate monitoring
-
-
-
-# Local Development & Testing
-
-## Prerequisites
-- Docker and Docker Compose installed on your machine
-
-## Running Tests with Docker
-
-### Quick Start
-Run all tests in an isolated container:
+Start monitoring services:
 ```bash
-./run-tests.sh
+python monitoring.py start
 ```
-This will:
-1. Start a container with all dependencies
-2. Run your tests
-3. Generate an HTML report in `test-results/report.html`
-4. Open the report automatically on macOS
 
-### Running Specific Tests
-To run specific tests, use the `pytest` command directly in the container:
+Access dashboards:
+- Grafana: http://localhost:3000 (admin/admin)
+- Prometheus: http://localhost:9090
 
-1. Start an interactive shell in the test container:
-   ```bash
-   docker-compose run --rm test /bin/bash
-   ```
+## Contributing
 
-2. Then run tests as needed:
-   ```bash
-   # Run all tests
-   pytest -v --html=test-results/report.html
-   
-   # Run a specific test file
-   pytest tests/test_login.py -v
-   
-   # Run tests matching a pattern
-   pytest -k "test_login" -v
-   
-   # Run in headed mode (for debugging)
-   HEADED=1 pytest tests/ -v
-   ```
-
-### Viewing Test Results
-- HTML Report: `open test-results/report.html` (on macOS)
-- Console output will show test results in real-time
-
-## Local Development Workflow
-1. Make your code changes
-2. Run `./run-tests.sh` to test locally
-3. Once tests pass, commit and push your changes
-4. The CI/CD pipeline will run the same tests in Jenkins
-
----
-
-# Run Test
-- Headed Mode: ```pytest --headed``` 
-- Selected Browser: ```pytest --browser webkit --browser firefox```
-- Run specific tests file: ```pytest test_login.py```
-- Run a Test case: ```pytest -k test_functiona_name```
-
-# Parallel
-```pytest --numprocesses 2```
-- NOTE: make sure ```pytest-xdist``` is installed
-
-# Debugging
-- All tests: ```PWDEBUG=1 pytest -s```
-- One Test file: ```PWDEBUG=1 pytest -s test_file.py```
-- Single Test case: ```PWDEBUG=1 pytest -s -k test_function_name```
-
-# Monitoring with Prometheus and Grafana
-
-This project includes monitoring capabilities using Prometheus, Pushgateway, and Grafana to track test metrics.
-
-## Prerequisites
-
-- Docker and Docker Compose must be installed
-- Check your Docker installation: `python monitoring.py check-docker`
-
-## Setup and Usage
-
-1. Start monitoring services:
-   ```
-   python monitoring.py start
-   ```
-
-2. Run your tests as usual. Metrics will be automatically collected and pushed to Prometheus via Pushgateway:
-   ```
-   pytest
-   ```
-   You'll see messages like `Metrics pushed successfully to Pushgateway` during test execution.
-
-3. Access monitoring dashboards:
-   - Prometheus: http://localhost:9090
-   - Pushgateway: http://localhost:9091
-   - Grafana: http://localhost:3000 (default credentials: admin/admin)
-
-4. Stop monitoring services when done:
-   ```
-   python monitoring.py stop
-   ```
-
-5. Check monitoring services status:
-   ```
-   python monitoring.py status
-   ```
-
-## How It Works
-
-The monitoring system uses three main components:
-
-1. **Prometheus**: Collects and stores metrics data, provides querying capabilities
-2. **Pushgateway**: Allows tests to push metrics that Prometheus can scrape
-3. **Grafana**: Provides beautiful dashboards to visualize the metrics
-
-During test execution, metrics are automatically pushed to the Pushgateway after each test. Prometheus scrapes these metrics from the Pushgateway and makes them available for querying and visualization in Grafana.
-
-## Available Metrics
-
-- `test_runs_total`: Total number of test runs
-- `test_passes_total`: Total number of passed tests
-- `test_failures_total`: Total number of failed tests
-- `test_duration_seconds`: Test execution time in seconds (histogram)
-
-
+1. Make your changes
+2. Run tests locally: `./run-tests.sh`
+3. Push changes to trigger CI/CD pipeline
