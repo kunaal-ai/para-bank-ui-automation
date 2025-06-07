@@ -37,34 +37,6 @@ pipeline {
             }
         }
 
-        stage('Verify Docker Compose') {
-            steps {
-                echo "=== Verifying Docker Compose Configuration ==="
-                sh '''
-                    #!/bin/bash
-                    set -e
-                    
-                    echo "Checking docker-compose.yml file..."
-                    if [ ! -f "docker-compose.yml" ]; then
-                        echo "ERROR: docker-compose.yml not found"
-                        echo "Current directory contents:"
-                        ls -la
-                        exit 1
-                    fi
-                    echo "✓ docker-compose.yml found"
-                    
-                    echo "Validating docker-compose.yml..."
-                    if ! ${DOCKER_COMPOSE} config; then
-                        echo "ERROR: Invalid docker-compose.yml configuration"
-                        echo "docker-compose.yml contents:"
-                        cat docker-compose.yml
-                        exit 1
-                    fi
-                    echo "✓ docker-compose.yml is valid"
-                '''
-            }
-        }
-
         stage('Setup Environment Variables') {
             steps {
                 echo "=== Setting Up Environment Variables ==="
@@ -89,6 +61,46 @@ PLAYWRIGHT_HEADLESS=true"""
                     
                     echo "=== Environment Variables ==="
                     grep -v "PASSWORD" .env
+                '''
+            }
+        }
+
+        stage('Verify Docker Compose') {
+            steps {
+                echo "=== Verifying Docker Compose Configuration ==="
+                sh '''
+                    #!/bin/bash
+                    set -e
+                    
+                    echo "Checking docker-compose.yml file..."
+                    if [ ! -f "docker-compose.yml" ]; then
+                        echo "ERROR: docker-compose.yml not found"
+                        echo "Current directory contents:"
+                        ls -la
+                        exit 1
+                    fi
+                    echo "✓ docker-compose.yml found"
+                    
+                    echo "Validating docker-compose.yml..."
+                    # First, verify the .env file is valid
+                    echo "Verifying .env file format..."
+                    if grep -q "if \[ ! -f" .env; then
+                        echo "ERROR: .env file contains shell script syntax"
+                        echo "Current .env contents:"
+                        cat .env
+                        exit 1
+                    fi
+                    
+                    # Then validate docker-compose.yml
+                    if ! ${DOCKER_COMPOSE} config; then
+                        echo "ERROR: Invalid docker-compose.yml configuration"
+                        echo "docker-compose.yml contents:"
+                        cat docker-compose.yml
+                        echo "=== Environment File Contents ==="
+                        cat .env
+                        exit 1
+                    fi
+                    echo "✓ docker-compose.yml is valid"
                 '''
             }
         }
