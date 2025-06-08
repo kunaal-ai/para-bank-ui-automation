@@ -9,7 +9,8 @@ scraped by Prometheus. This approach ensures metrics are available even after te
 import time
 import os
 import sys
-from prometheus_client import Counter, Histogram, push_to_gateway, CollectorRegistry
+import psutil
+from prometheus_client import Counter, Histogram, Gauge, push_to_gateway, CollectorRegistry
 
 # Create a registry
 registry = CollectorRegistry()
@@ -21,6 +22,10 @@ TEST_FAILURES = Counter('test_failures_total', 'Total number of failed tests', r
 TEST_DURATION = Histogram('test_duration_seconds', 'Test execution time in seconds',
                          buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
                          registry=registry)
+MEMORY_USAGE = Gauge('test_memory_usage_bytes', 'Memory usage during test execution', registry=registry)
+TEST_PERFORMANCE = Histogram('test_performance_score', 'Test performance score (1-100)',
+                           buckets=[20, 40, 60, 80, 100],
+                           registry=registry)
 
 # Function to push metrics
 def push_metrics(job_name='para-bank-tests'):
@@ -37,6 +42,7 @@ class TestMetrics:
     def __init__(self, test_name):
         self.test_name = test_name
         self.start_time = None
+        self.process = psutil.Process()
         
     def __enter__(self):
         self.start_time = time.time()
@@ -46,6 +52,14 @@ class TestMetrics:
     def __exit__(self, exc_type, exc_val, exc_tb):
         duration = time.time() - self.start_time
         TEST_DURATION.observe(duration)
+        
+        # Track memory usage
+        memory_info = self.process.memory_info()
+        MEMORY_USAGE.set(memory_info.rss)
+        
+        # Calculate performance score (100 - duration in seconds, capped at 100)
+        performance_score = max(0, min(100, 100 - duration))
+        TEST_PERFORMANCE.observe(performance_score)
         
         if exc_type is None:
             TEST_PASSES.inc()
