@@ -67,7 +67,7 @@ pipeline {
         stage('Dependency Scan') {
             steps {
                 sh '''
-                    echo "=== Running Dependency Security Scan ==="
+                    echo "=== Running Dependency Security Scan  ==="
                     if [ ! -f requirements.txt ]; then
                         echo "ERROR: requirements.txt not found"
                         exit 1
