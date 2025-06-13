@@ -8,17 +8,13 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting local pipeline test...${NC}"
 
-# Check if docker-compose is running
-if ! docker-compose ps | grep -q "jenkins"; then
-    echo -e "${YELLOW}Jenkins container is not running. Starting it...${NC}"
-    docker-compose up -d jenkins
-    # Wait for Jenkins to start
-    echo "Waiting for Jenkins to start..."
-    sleep 30
-fi
-
 # Get Jenkins container ID
-JENKINS_CONTAINER=$(docker-compose ps -q jenkins)
+JENKINS_CONTAINER=$(docker ps -q -f name=jenkins)
+
+if [ -z "$JENKINS_CONTAINER" ]; then
+    echo -e "${RED}Jenkins container is not running. Please start it first.${NC}"
+    exit 1
+fi
 
 # Wait for Jenkins to be ready
 echo -e "${YELLOW}Waiting for Jenkins to be ready...${NC}"

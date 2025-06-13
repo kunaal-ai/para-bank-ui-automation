@@ -55,7 +55,7 @@ platformdirs==4.3.8
 pytest-metadata==3.1.1
 python-dateutil==2.9.0.post0
 pytz==2025.2
-requests==2.32.3
+requests==2.32.4
 charset-normalizer==3.4.2
 idna==3.10
 urllib3==2.4.0
