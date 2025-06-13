@@ -115,8 +115,10 @@ pipeline {
                     echo "=== Cloning Repository ==="
                     # Remove existing contents except .git if it exists
                     if [ -d ".git" ]; then
-                        echo "Git repository exists, pulling latest changes..."
-                        git pull || { echo "Failed to pull latest changes"; exit 1; }
+                        echo "Git repository exists, resetting to remote..."
+                        git fetch --all || { echo "Failed to fetch from remote"; exit 1; }
+                        git reset --hard origin/main || { echo "Failed to reset to remote branch"; exit 1; }
+                        # git pull || { echo "Failed to pull latest changes"; exit 1; }  # No longer needed
                     else
                         echo "No git repository found, cleaning workspace and cloning..."
                         # Create a temporary directory for venv if it exists
