@@ -5,15 +5,10 @@ Automated UI testing for ParaBank using Playwright, Python, and Jenkins CI/CD.
 ## Technologies
 
 ### Testing & Automation
-- 🐍 **Python** - Core programming language
-- 🎭 **Playwright** - Modern web testing framework
-- 📊 **Pytest** - Test runner and framework
-- 🏗️ **Page Object Model** - Design pattern for test maintenance
+- Python, Playwright, Pytest
 
 ### CI/CD & Infrastructure
-- 🔄 **Jenkins** - Continuous Integration/Deployment
-- 🐳 **Docker** - Containerization
-- 📦 **Docker Compose** - Multi-container orchestration
+- Jenkins, Docker, Docker Compose
 
 ### Monitoring & Reporting
 - 📈 **Prometheus** - Metrics collection
@@ -22,7 +17,6 @@ Automated UI testing for ParaBank using Playwright, Python, and Jenkins CI/CD.
 - 📋 **JUnit XML** - CI integration reports
 
 ### Development Tools
-- 🐙 **Git** - Version control
 - 📦 **pip** - Package management
 - 🔍 **pytest-xdist** - Parallel test execution
 - 🎥 **Video Recording** - Failed test capture
@@ -58,18 +52,6 @@ Automated UI testing for ParaBank using Playwright, Python, and Jenkins CI/CD.
 - 🎥 Video recording for failed tests
 - 🔁 Automatic retry for flaky tests
 
-## Project Structure
-
-```
-.
-├── src/              # Source code
-│   ├── pages/       # Page Object Models
-│   └── utils/       # Utilities
-├── tests/           # Test files
-├── config/          # Configuration files
-├── docker/          # Docker configurations
-└── scripts/         # Helper scripts
-```
 
 ## Environment Variables
 
