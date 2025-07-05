@@ -1,67 +1,18 @@
 # Core dependencies
 pytest==7.4.4
-pytest-cov==4.1.0
-pytest-html==4.1.1
-pytest-base-url==2.0.0
-pytest-playwright==0.4.3
-pytest-rerunfailures==12.0
-playwright==1.42.0
-python-dotenv==1.0.1
-prometheus-client==0.17.1
-psutil==5.9.8
+pytest-html==4.1.1  # For HTML test reports
+pytest-playwright==0.4.3  # Playwright integration for pytest
+playwright==1.42.0  # Browser automation
+python-dotenv==1.0.1  # Environment variable management
+prometheus-client==0.17.1  # Metrics collection
+psutil==5.9.8  # System monitoring
 urllib3>=2.5.0  # Security fix for CVE-2025-50181, CVE-2025-50182
 
 # Testing utilities
-pytest-dotenv==0.5.2
-pytest-reporter==0.5.2
-pytest-reporter-html1==0.8.3
-pytest-xdist==3.3.1
-
-# Other utilities
-pandas==1.5.3
-pillow>=11.3.0  # Security fix for CVE-2025-48379
+pytest-xdist==3.3.1  # Parallel test execution
+pytest-rerunfailures==12.0  # Auto-retry failed tests
 
 # Development tools
-black==24.3.0
-pylint==3.0.3
-mypy==1.7.0
-python-slugify==8.0.1
-
-# Incompatible or optional packages (commented out)
-# llvmlite==0.39.1  # Incompatible with Python 3.9
-# ipython==8.12.3  # Not required for testing
-
-# Additional packages
-greenlet==3.0.3
-pyee==11.0.1
-astroid==3.0.3
-isort==5.13.2
-mccabe==0.7.0
-pluggy==1.6.0
-ansi2html==1.9.2
-click==8.2.1
-coverage==7.8.2
-dill==0.4.0
-execnet==2.1.1
-jinja2==3.1.6
-markupsafe==3.0.2
-mypy-extensions==1.1.0
-numpy==2.2.6
-packaging==25.0
-pathspec==0.12.1
-platformdirs==4.3.8
-pytest-metadata==3.1.1
-python-dateutil==2.9.0.post0
-pytz==2025.2
-requests==2.32.4
-charset-normalizer==3.4.2
-idna==3.10
-# urllib3>=2.5.0 is already specified at the top of the file
-certifi==2025.4.26
-six==1.17.0
-text-unidecode==1.3
-tomlkit==0.13.3
-typing-extensions==4.14.0
-docutils==0.21.2
-htmlmin==0.1.12
-iniconfig==2.1.0
+black==24.3.0  # Code formatting
+pylint==3.0.3  # Code linting
+mypy==1.7.0  # Static type checking
