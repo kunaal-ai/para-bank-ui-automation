@@ -6,12 +6,22 @@ build-backend = "setuptools.build_meta"
 name = "para-bank-ui-automation"
 version = "0.1.0"
 description = "UI Automation tests for ParaBank"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "pytest",
     "pytest-html",
     "pytest-playwright",
-    "playwright"
+    "playwright",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pylint",
+    "mypy",
+    "bandit",
+    "pip-audit"
 ]
 
 [tool.setuptools]
@@ -27,9 +37,29 @@ addopts = "-v --html=test-results/report.html --self-contained-html --junitxml=t
 markers = [
     "smoke: marks tests as smoke tests",
     "regression: marks tests as regression tests",
-    "integration: marks tests as integration tests"
+    "integration: marks tests as integration tests",
+    "webtest: mark a test as a webtest (deselect with '-m \"not webtest\"')",
+    "slow: mark test as slow running"
 ]
 
+# JUnit XML output configuration
+junit_family = "legacy"
+junit_logging = "all"
+junit_duration_report = "call"
+
+# Playwright configuration
+[tool.pytest.ini_options.playwright]
+browser = "chromium"
+headless = true
+video = "retain-on-failure"
+trace = "retain-on-failure"
+viewport_width = 1280
+viewport_height = 720
+timeout = 30000
+navigation_timeout = 30000
+base_url = "https://parabank.parasoft.com/parabank/"
+
+# Code formatting
 [tool.black]
 line-length = 88
 target-version = ['py310']
@@ -37,4 +67,9 @@ include = '\.pyi?$'
 
 [tool.isort]
 profile = "black"
-multi_line_output = 3 
+multi_line_output = 3
+
+# Coverage configuration (if using pytest-cov)
+[tool.coverage.run]
+source = ["pages", "tests", "conftest.py"]
+data_file = ".coverage" 
