@@ -48,11 +48,11 @@ def check_docker_installed():
 
 def check_docker_compose_installed():
     """Check if Docker Compose is installed"""
-    # Try docker-compose command (older versions)
-    if run_command(["docker-compose", "--version"], check=False) is not None:
-        return True
-    # Try docker compose command (newer versions)
+    # Try docker compose command (newer versions) first
     if run_command(["docker", "compose", "version"], check=False) is not None:
+        return True
+    # Fall back to docker-compose command (older versions)
+    if run_command(["docker-compose", "--version"], check=False) is not None:
         return True
     return False
 
