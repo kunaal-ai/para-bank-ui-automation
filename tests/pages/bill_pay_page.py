@@ -52,7 +52,7 @@ class BillPay:
         self.state_text.fill(state)
         self.zip_code_text.fill(zip_code)
         self.phone_no_text.fill(phone_no)
-        self.verify_acc_no_text.fill(account_no)
+        self.account_no.fill(account_no)
         self.verify_acc_no_text.fill(verify_acc_no)
         self.amount_text.fill(amount)
         self.send_payment_button.click()

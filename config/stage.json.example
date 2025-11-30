@@ -1,0 +1,17 @@
+{
+  "base_url": "https://stage.parabank.parasoft.com/parabank",
+  "api_url": "https://stage.parabank.parasoft.com/parabank/api",
+  "browser": "chromium",
+  "headless": true,
+  "timeout": 30000,
+  "users": {
+    "valid": {
+      "username": "stage_user",
+      "password": "stage_pass"
+    },
+    "invalid": {
+      "username": "invalid",
+      "password": "invalid"
+    }
+  }
+}

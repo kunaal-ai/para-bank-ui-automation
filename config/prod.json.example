@@ -1,0 +1,17 @@
+{
+  "base_url": "https://prod.parabank.parasoft.com/parabank",
+  "api_url": "https://prod.parabank.parasoft.com/parabank/api",
+  "browser": "chromium",
+  "headless": true,
+  "timeout": 30000,
+  "users": {
+    "valid": {
+      "username": "prod_user",
+      "password": "prod_pass"
+    },
+    "invalid": {
+      "username": "invalid",
+      "password": "invalid"
+    }
+  }
+}
