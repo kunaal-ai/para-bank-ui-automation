@@ -4,7 +4,7 @@ import re
 import pytest
 from dotenv import load_dotenv, find_dotenv
 from playwright.sync_api import Page, expect
-from src.pages.home_login_page import HomePage
+from tests.pages.home_login_page import HomePage
 
 # Load environment variables from .env file if it exists
 env_path = find_dotenv(usecwd=True)

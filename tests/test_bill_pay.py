@@ -1,9 +1,10 @@
 """Testing bill payment for submission.
 """
 import pytest
-from src.pages.home_login_page import HomePage
-from src.pages.bill_pay_page import BillPay
-from src.pages.helper_pom.payment_services_tab import PaymentServicesTab
+
+from tests.pages.bill_pay_page import BillPay
+from tests.pages.home_login_page import HomePage
+from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 
 def test_submit_form_with_correct_values(
     home_page: HomePage,

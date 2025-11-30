@@ -1,7 +1,7 @@
 """Tests for Home Page"""
 from playwright.sync_api import Page, expect
 import pytest
-from src.pages.home_login_page import HomePage
+from tests.pages.home_login_page import HomePage
 
 
 def test_user_log_in_sucessfully(user_login, page: Page):

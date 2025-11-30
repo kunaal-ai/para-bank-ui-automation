@@ -6,9 +6,9 @@ import pytest
 from pathlib import Path
 from typing import Generator, Dict
 from playwright.sync_api import Page, Browser, BrowserContext, expect
-from src.pages.home_login_page import HomePage
-from src.pages.bill_pay_page import BillPay
-from src.pages.helper_pom.payment_services_tab import PaymentServicesTab
+from tests.pages.home_login_page import HomePage
+from tests.pages.bill_pay_page import BillPay
+from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from src.utils.metrics_pusher import TestMetrics, push_metrics
 
 # Global configuration
