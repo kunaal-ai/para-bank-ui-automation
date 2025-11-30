@@ -1,16 +1,16 @@
 # Core dependencies
-pytest==7.4.4
+pytest==8.2.2  # Updated from 7.4.4
 pytest-html==4.1.1  # For HTML test reports
-pytest-playwright==0.4.3  # Playwright integration for pytest
-playwright==1.42.0  # Browser automation
+pytest-playwright==0.7.2  # Updated from 0.4.3 - Playwright integration for pytest
+playwright==1.50.0  # Updated from 1.42.0 - Browser automation
 python-dotenv==1.0.1  # Environment variable management
-prometheus-client==0.17.1  # Metrics collection
-psutil==5.9.8  # System monitoring
+prometheus-client==0.20.0  # Updated from 0.17.1 - Metrics collection
+psutil==6.0.0  # Updated from 5.9.8 - System monitoring
 urllib3>=2.5.0  # Security fix for CVE-2025-50181, CVE-2025-50182
 
 # Testing utilities
-pytest-xdist==3.3.1  # Parallel test execution
-pytest-rerunfailures==12.0  # Auto-retry failed tests
+pytest-xdist==3.6.1  # Updated from 3.3.1 - Parallel test execution (3.6.0 was yanked)
+pytest-rerunfailures==14.0  # Updated from 12.0 - Auto-retry failed tests
 
 # Development tools
 black==24.3.0  # Code formatting

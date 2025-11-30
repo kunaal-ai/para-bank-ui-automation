@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'mcr.microsoft.com/playwright:v1.42.1-jammy'
+            image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
             args '-v ${WORKSPACE}:/workspace -w /workspace --ipc=host --shm-size=2g -u root'
             reuseNode true
         }
@@ -49,11 +49,11 @@ pipeline {
                         if [ -f "requirements.txt" ]; then
                             echo "Installing project dependencies..."
                             pip install -r requirements.txt
+                        else
+                            # Fallback: Install test dependencies if requirements.txt is missing
+                            echo "Installing test dependencies..."
+                            pip install pytest pytest-html pytest-xdist pytest-playwright pytest-rerunfailures
                         fi
-                        
-                        # Install test dependencies
-                        echo "Installing test dependencies..."
-                        pip install pytest pytest-html pytest-xdist pytest-playwright pytest-rerunfailures
                         
                         # Setup Playwright
                         echo "Setting up Playwright..."
@@ -126,7 +126,7 @@ pipeline {
                         cd "${WORKSPACE}"
                         
                         # Check for required directories
-                        for dir in "tests" "src/pages" "src/utils"; do
+                        for dir in "tests" "tests/pages" "src/utils"; do
                             if [ ! -d "$dir" ]; then
                                 echo "Error: Required directory '$dir' not found"
                                 exit 1
