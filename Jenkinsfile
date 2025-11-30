@@ -23,6 +23,8 @@ pipeline {
         // Credentials
         PASSWORD = credentials('PARABANK_PASSWORD')
         GITHUB_CREDENTIALS = credentials('github-credentials')
+        // Test user credentials (default username, password from credentials)
+        TEST_USERNAME = 'john'
         
         // Python settings
         PYTHONUNBUFFERED = '1'
@@ -134,6 +136,53 @@ pipeline {
                         done
                         
                         echo "Repository structure verified"
+                    '''
+                }
+            }
+        }
+
+        stage('Create Config File') {
+            steps {
+                script {
+                    // Create dev.json from environment variables and credentials
+                    sh '''
+                        #!/bin/bash -xe
+                        set -e
+                        
+                        echo "Creating config/dev.json from environment variables..."
+                        cd "${WORKSPACE}"
+                        
+                        # Create config directory if it doesn't exist
+                        mkdir -p config
+                        
+                        # Create dev.json with credentials from Jenkins
+                        # Use PASSWORD from Jenkins credentials and default username
+                        cat > config/dev.json << EOF
+{
+  "base_url": "https://parabank.parasoft.com/parabank",
+  "api_url": "https://parabank.parasoft.com/parabank/api",
+  "browser": "chromium",
+  "headless": true,
+  "timeout": 30000,
+  "users": {
+    "valid": {
+      "username": "${TEST_USERNAME}",
+      "password": "${PASSWORD}"
+    },
+    "invalid": {
+      "username": "invalid",
+      "password": "invalid"
+    }
+  }
+}
+EOF
+                        
+                        echo "Config file created successfully"
+                        # Verify the file was created
+                        if [ ! -f "config/dev.json" ]; then
+                            echo "Error: Failed to create config/dev.json"
+                            exit 1
+                        fi
                     '''
                 }
             }
