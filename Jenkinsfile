@@ -199,6 +199,10 @@ EOF
                         echo "Running tests..."
                         cd "${WORKSPACE}"
                         
+                        # Create test-results directory if it doesn't exist
+                        mkdir -p test-results
+                        
+                        # Run tests with reporting
                         python3 -m pytest \
                             tests/test_*.py \
                             -v \
@@ -209,6 +213,15 @@ EOF
                             --browser=chromium
                         
                         echo "Tests completed successfully"
+                        
+                        # Verify test results were generated
+                        if [ -f "test-results/junit.xml" ]; then
+                            echo "JUnit XML report found at test-results/junit.xml"
+                            ls -lh test-results/
+                        else
+                            echo "WARNING: JUnit XML report not found at test-results/junit.xml"
+                            ls -la test-results/ || echo "test-results directory does not exist"
+                        fi
                     '''
                 }
             }
@@ -222,7 +235,24 @@ EOF
                 echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
                 
                 // Archive JUnit test results
-                junit '**/junit.xml'
+                // Use pattern matching to find junit.xml files
+                script {
+                    try {
+                        junit '**/junit.xml'
+                    } catch (Exception e) {
+                        echo "WARNING: Failed to archive JUnit results: ${e.getMessage()}"
+                        echo "Checking for test result files..."
+                        sh '''
+                            echo "Current directory: $(pwd)"
+                            echo "Looking for junit.xml files..."
+                            find . -name "junit.xml" -type f 2>/dev/null || echo "No junit.xml files found"
+                            if [ -d "test-results" ]; then
+                                echo "Contents of test-results directory:"
+                                ls -la test-results/ || true
+                            fi
+                        '''
+                    }
+                }
                 
                 // Publish HTML report
                 publishHTML(target: [
