@@ -1,16 +1,94 @@
 """Test configuration and fixtures for ParaBank UI automation."""
-
 import os
 import re
-import pytest
+import sys
+import logging
 from pathlib import Path
 from typing import Generator, Dict, Any
+import pytest
 from playwright.sync_api import Page, Browser, BrowserContext, expect
+
+# Import local modules
 from tests.pages.home_login_page import HomePage
 from tests.pages.bill_pay_page import BillPay
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from src.utils.metrics_pusher import TestMetrics, push_metrics
 from config import Config
+
+# Set up logging directory
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+log_file = log_dir / "test_run.log"
+
+def setup_logging():
+    """Configure logging."""
+    # Create root logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    
+    # Clear existing handlers to avoid duplicate logs
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Console handler
+    console = logging.StreamHandler(sys.stdout)
+    console.setFormatter(formatter)
+    console.setLevel(logging.DEBUG)
+    
+    # File handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Add handlers
+    logger.addHandler(console)
+    logger.addHandler(file_handler)
+    
+    return logging.getLogger("parabank")
+
+# Initialize logger
+logger = setup_logging()
+
+# Pytest hooks
+def pytest_configure(config):
+    """Configure test session."""
+    logger.info("=" * 80)
+    logger.info("Starting test session")
+    logger.info(f"Log level: {logging.getLevelName(logger.getEffectiveLevel())}")
+    logger.info("=" * 80)
+
+def pytest_runtest_setup(item):
+    """Log test setup."""
+    logger.info(f"Starting test: {item.nodeid}")
+
+def pytest_runtest_teardown(item, nextitem):
+    """Log test teardown."""
+    logger.info(f"Finished test: {item.nodeid}")
+
+def pytest_sessionfinish(session, exitstatus):
+    """Log test session completion."""
+    logger.info("=" * 80)
+    logger.info(f"Test session completed with status: {exitstatus}")
+    logger.info("=" * 80)
+
+# Fixtures
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args):
+    """Set default browser context options."""
+    return {
+        **browser_context_args,
+        "viewport": {
+            "width": 1920,
+            "height": 1080,
+        },
+        "record_video_dir": "test-results/videos",
+    }
 
 # Global configuration
 def pytest_addoption(parser):

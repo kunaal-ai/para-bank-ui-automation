@@ -11,11 +11,12 @@ Automated UI testing framework for ParaBank using Playwright, Python, and modern
 - **Cross-browser Testing**: Support for Chromium, Firefox, and WebKit
 - **Parallel Execution**: Run tests in parallel with pytest-xdist
 - **Rich Reporting**: Allure reports, JUnit XML, and HTML coverage reports
-- **CI/CD Ready**: Pre-configured for GitHub Actions and Jenkins
+- **CI/CD Ready**: Pre-configured for GitHub Actions and Jenkins with Docker
 - **Type Checking**: Full mypy integration for static type checking
 - **Code Quality**: Pre-commit hooks with Black, isort, and flake8
 - **Test Stability**: Automatic retries for flaky tests
 - **Visual Testing**: Screenshot and video recording on failure
+- **Centeralize Logger**: For debug and info logger is in place
 
 ## 🛠️ Installation
 
@@ -221,8 +222,33 @@ pre-commit run --all-files
   pytest --alluredir=allure-results
   allure serve allure-results
   ```
+## Logger
+The project includes a centralized logging system that outputs to both console and file (`logs/test_run.log`).
+### Usage
+```python
+import logging
+logger = logging.getLogger("parabank")
 
+def test_example():
+    logger.info("Starting test")
+    try:
+        # Test code
+        logger.debug("Debug information")
+    except Exception as e:
+        logger.error(f"Test failed: {e}")
+        raise
+```
+### Log Levels
+ - `DEBUG`: Detailed debugging information
+ - `INFO`: General test progress
+ - `WARNING`: Non-critical issues
+ - `ERROR`: Test failures
+ - `CRITICAL`: Critical errors
 
+### Configuration
+ - Log file: `logs/test_run.log`
+ - Format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
+ - Automatically configured in `conftest.py`
 
 
 ## 🐳 Docker & Monitoring
