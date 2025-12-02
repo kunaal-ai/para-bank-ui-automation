@@ -16,5 +16,5 @@ pytest-rerunfailures==14.0  # Updated from 12.0 - Auto-retry failed tests
 black==24.3.0  # Code formatting
 pylint==3.0.3  # Code linting
 mypy==1.7.0  # Static type checking
-
-
+bandit[toml]==1.7.6  # Security linting with toml support
+types-psutil==5.9.5.20240106  # Type stubs for psutil

@@ -12,20 +12,20 @@ pipeline {
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
         WORKSPACE = '/workspace'
         PYTHONPATH = "${WORKSPACE}:${WORKSPACE}/src"
-        
+
         // Playwright settings
         PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
-        
+
         // Security settings
         BANDIT_SEVERITY_THRESHOLD = 'HIGH'
         BANDIT_CONFIDENCE_THRESHOLD = 'HIGH'
-        
+
         // Credentials
         PASSWORD = credentials('PARABANK_PASSWORD')
         GITHUB_CREDENTIALS = credentials('github-credentials')
         // Test user credentials (default username, password from credentials)
         TEST_USERNAME = 'john'
-        
+
         // Python settings
         PYTHONUNBUFFERED = '1'
         REPO_URL = 'https://github.com/kunaal-ai/para-bank-ui-automation.git'
@@ -39,14 +39,14 @@ pipeline {
                     sh '''
                         #!/bin/bash -xe
                         set -e
-                        
+
                         echo "Installing system dependencies..."
                         apt-get update
                         apt-get install -y python3 python3-pip python3-venv git
-                        
+
                         echo "Setting up Python environment..."
                         python3 -m pip install --upgrade pip setuptools wheel
-                        
+
                         # Install project dependencies if requirements.txt exists
                         if [ -f "requirements.txt" ]; then
                             echo "Installing project dependencies..."
@@ -56,7 +56,7 @@ pipeline {
                             echo "Installing test dependencies..."
                             pip install pytest pytest-html pytest-xdist pytest-playwright pytest-rerunfailures
                         fi
-                        
+
                         # Setup Playwright
                         echo "Setting up Playwright..."
                         python3 -m playwright install --with-deps chromium
@@ -80,7 +80,7 @@ pipeline {
                         '''
                     }
                 }
-                
+
                 stage('Code Scan') {
                     steps {
                         sh '''
@@ -103,10 +103,10 @@ pipeline {
                     sh '''
                         #!/bin/bash -xe
                         set -e
-                        
+
                         echo "Setting up workspace..."
                         cd "${WORKSPACE}"
-                        
+
                         if [ -d ".git" ]; then
                             echo "Updating existing repository..."
                             git fetch --all
@@ -115,18 +115,18 @@ pipeline {
                             echo "Cloning repository..."
                             git clone "https://${GITHUB_CREDENTIALS}@github.com/kunaal-ai/para-bank-ui-automation.git" .
                         fi
-                        
+
                         echo "Repository ready"
                     '''
-                    
+
                     // Verify repository structure
                     sh '''
                         #!/bin/bash -xe
                         set -e
-                        
+
                         echo "Verifying repository structure..."
                         cd "${WORKSPACE}"
-                        
+
                         # Check for required directories
                         for dir in "tests" "tests/pages" "src/utils"; do
                             if [ ! -d "$dir" ]; then
@@ -134,7 +134,7 @@ pipeline {
                                 exit 1
                             fi
                         done
-                        
+
                         echo "Repository structure verified"
                     '''
                 }
@@ -148,13 +148,13 @@ pipeline {
                     sh '''
                         #!/bin/bash -xe
                         set -e
-                        
+
                         echo "Creating config/dev.json from environment variables..."
                         cd "${WORKSPACE}"
-                        
+
                         # Create config directory if it doesn't exist
                         mkdir -p config
-                        
+
                         # Create dev.json with credentials from Jenkins
                         # Use PASSWORD from Jenkins credentials and default username
                         cat > config/dev.json << EOF
@@ -176,7 +176,7 @@ pipeline {
   }
 }
 EOF
-                        
+
                         echo "Config file created successfully"
                         # Verify the file was created
                         if [ ! -f "config/dev.json" ]; then
@@ -195,13 +195,13 @@ EOF
                     sh '''
                         #!/bin/bash -xe
                         set -e
-                        
+
                         echo "Running tests..."
                         cd "${WORKSPACE}"
-                        
+
                         # Create test-results directory if it doesn't exist
                         mkdir -p test-results
-                        
+
                         # Run tests with reporting
                         python3 -m pytest \
                             tests/test_*.py \
@@ -211,9 +211,9 @@ EOF
                             --self-contained-html \
                             --reruns 1 \
                             --browser=chromium
-                        
+
                         echo "Tests completed successfully"
-                        
+
                         # Verify test results were generated
                         if [ -f "test-results/junit.xml" ]; then
                             echo "JUnit XML report found at test-results/junit.xml"
@@ -233,7 +233,7 @@ EOF
             script {
                 // Always archive test results
                 echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
-                
+
                 // Archive JUnit test results
                 // Use pattern matching to find junit.xml files
                 script {
@@ -253,7 +253,7 @@ EOF
                         '''
                     }
                 }
-                
+
                 // Publish HTML report
                 publishHTML(target: [
                     allowMissing: true,
@@ -263,7 +263,7 @@ EOF
                     reportFiles: 'report.html',
                     reportName: 'Test Results'
                 ])
-                
+
                 // Clean up workspace if build failed
                 if (currentBuild.result == 'FAILURE') {
                     cleanWs()

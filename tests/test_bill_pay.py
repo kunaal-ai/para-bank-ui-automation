@@ -1,18 +1,21 @@
-"""Testing bill payment for submission.
-"""
+"""Testing bill payment for submission."""
 import logging
+
+from playwright.sync_api import Page, expect
+
+from tests.pages.bill_pay_page import BillPay
+from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
+
 logger = logging.getLogger("parabank")
 
-import pytest
-from playwright.sync_api import expect, Page
 
 def test_submit_form_with_correct_values(
-    user_login, 
-    payment_services_tab, 
-    bill_pay_page,
+    user_login: None,
+    payment_services_tab: PaymentServicesTab,
+    bill_pay_page: BillPay,
     page: Page,
-    base_url:str
-):
+    base_url: str,
+) -> None:
     """Test bill payment with valid inputs.
 
     Args:
@@ -21,7 +24,7 @@ def test_submit_form_with_correct_values(
         bill_pay_page: Bill payment page object
         page: Playwright page object
         base_url: Base URL of the application
-    """  
+    """
     logger.info("Starting bill payment test")
     try:
         payment_services_tab.bill_pay_link.click()
@@ -39,7 +42,7 @@ def test_submit_form_with_correct_values(
             "phone_no": "1234567890",
             "account_no": "221144",
             "verify_acc_no": "221144",
-            "amount": "9786.00"
+            "amount": "9786.00",
         }
         logger.debug(f"Submitting form with data: {test_data}")
         bill_pay_page.submit_form(**test_data)

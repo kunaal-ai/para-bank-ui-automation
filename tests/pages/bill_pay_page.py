@@ -1,12 +1,11 @@
-""" Page objects for BillPay class
-"""
+"""Page objects for BillPay class."""
 
 from playwright.sync_api import Page
 
 
 class BillPay:
-    """_summary_
-    """
+    """_summary_"""
+
     def __init__(self, page: Page) -> None:
         self.page = page
         self.name_text = page.locator("input[name='payee.name']")
@@ -18,34 +17,33 @@ class BillPay:
         self.account_no = page.locator("input[name='payee.accountNumber' ]")
         self.verify_acc_no_text = page.locator("input[name='verifyAccount' ]")
         self.amount_text = page.locator("input[name='amount' ]")
-        self.send_payment_button = page.locator('input.button')
+        self.send_payment_button = page.locator("input.button")
 
-    
     def submit_form(
         self,
-        name,
-        address,
-        city,
-        state,
-        zip_code,
-        phone_no,
-        account_no,
-        verify_acc_no,
-        amount,
-    ):
+        name: str,
+        address: str,
+        city: str,
+        state: str,
+        zip_code: str,
+        phone_no: str,
+        account_no: str,
+        verify_acc_no: str,
+        amount: str,
+    ) -> None:
         """Submit pay form
 
         Args:
-            name (any): Expected string input in form
-            address (any): Expected string input in form
-            city (any): Expected string input in form
-            state (any): Expected string input in form
-            zip_code (any): Expected string input in form
-            phone_no (any): Expected string input in form
-            account_no (any): Expected string input in form
-            verify_acc_no (any): Expected string input in form
-            amount (any): Expected string input in form
-        """    
+            name: Payee name
+            address: Payee street address
+            city: Payee city
+            state: Payee state
+            zip_code: Payee ZIP code
+            phone_no: Payee phone number
+            account_no: Payee account number
+            verify_acc_no: Verification of account number
+            amount: Payment amount
+        """
         self.name_text.fill(name)
         self.address_text.fill(address)
         self.city_text.fill(city)

@@ -12,4 +12,4 @@ include_dirs:
   - src
   - tests
 output_format: json
-output_file: bandit-report.json 
+output_file: bandit-report.json

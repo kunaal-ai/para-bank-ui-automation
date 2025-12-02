@@ -110,9 +110,18 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-disallow_untyped_decorators = true
+disallow_untyped_decorators = false
 disallow_incomplete_defs = true
 disallow_untyped_calls = true
+
+[[tool.mypy.overrides]]
+module = [
+    "playwright.*",
+    "prometheus_client.*",
+    "pytest.*",
+    "_pytest.*",
+]
+ignore_missing_imports = true
 
 # Linter configuration
 [tool.pylint.master]
@@ -124,5 +133,13 @@ disable = [
     "too-few-public-methods",
     "import-error",
     "no-name-in-module",
-    "unused-argument"
+    "unused-argument",
+    "too-many-instance-attributes",
+    "too-many-arguments",
+    "duplicate-code",
+    "broad-exception-caught",
+    "redefined-outer-name",
+    "logging-fstring-interpolation",
+    "implicit-str-concat",
+    "useless-return"
 ]

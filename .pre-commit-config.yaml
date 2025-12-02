@@ -28,7 +28,8 @@ repos:
     rev: 6.1.0
     hooks:
     -   id: flake8
-        additional_dependencies: [flake8-bugbear==23.9.11]
+        additional_dependencies: [flake8-bugbear==23.11.28]
+        args: [--max-line-length=100, --extend-ignore=E203]
 
 -   repo: https://github.com/pycqa/pylint
     rev: v3.0.2
@@ -36,7 +37,7 @@ repos:
     -   id: pylint
         name: pylint
         entry: pylint
-        language: system
+        language: python
         types: [python]
         args: [--rcfile=pyproject.toml]
 
@@ -44,7 +45,7 @@ repos:
     rev: v1.7.1
     hooks:
     -   id: mypy
-        additional_dependencies: [types-requests, types-pyyaml]
+        additional_dependencies: [types-requests, types-pyyaml, types-psutil]
         args: [--config-file=pyproject.toml]
         exclude: '^tests/'
 
@@ -52,7 +53,8 @@ repos:
     rev: 1.7.6
     hooks:
     -   id: bandit
-        args: [--configfile=pyproject.toml]
+        args: [--configfile=.bandit.yaml]
+        additional_dependencies: ['bandit[toml]']
         exclude: '^(tests/|venv/)'
 
 -   repo: https://github.com/pypa/pip-audit
