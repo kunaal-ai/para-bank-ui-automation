@@ -401,8 +401,10 @@ EOF
                 // Always archive test results
                 echo "Pipeline completed: ${currentBuild.result ?: 'SUCCESS'}"
 
+                // Create the test-results directory if it doesn't exist
+                sh 'mkdir -p test-results'
+
                 // Archive JUnit test results from all environments
-                // Use pattern matching to find junit.xml files
                 script {
                     try {
                         junit 'test-results/**/junit.xml'
@@ -424,6 +426,24 @@ EOF
                                 done
                             fi
                         '''
+                    }
+                }
+
+                // Publish HTML reports for each environment
+                def environments = ['dev', 'stage', 'prod']
+                environments.each { env ->
+                    def reportDir = "test-results/${env}"
+                    if (fileExists(reportDir)) {
+                        publishHTML(target: [
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: reportDir,
+                            reportFiles: 'report.html',
+                            reportName: "${env.toUpperCase()} Test Results"
+                        ])
+                    } else {
+                        echo "WARNING: Test results directory not found: ${reportDir}"
                     }
                 }
 
