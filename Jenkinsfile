@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
-            args "-v ${env.WORKSPACE}:/workspace -w /workspace --ipc=host --shm-size=2g -u root"
+            args '--ipc=host --shm-size=2g -u root'
             reuseNode true
         }
     }
@@ -10,8 +10,7 @@ pipeline {
     environment {
         // Application settings
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
-        CONTAINER_WORKDIR = '/workspace'
-        PYTHONPATH = "${CONTAINER_WORKDIR}:${CONTAINER_WORKDIR}/src"
+        PYTHONPATH = "$WORKSPACE:$WORKSPACE/src"
 
         // Playwright settings
         PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright/'
@@ -108,7 +107,7 @@ pipeline {
                         set -e
 
                         echo "Setting up workspace..."
-                        cd "${CONTAINER_WORKDIR}"
+                        cd "${WORKSPACE}"
 
                         if [ -d ".git" ]; then
                             echo "Updating existing repository..."
@@ -128,7 +127,7 @@ pipeline {
                         set -e
 
                         echo "Verifying repository structure..."
-                        cd "${CONTAINER_WORKDIR}"
+                        cd "${WORKSPACE}"
 
                         # Check for required directories
                         for dir in "tests" "tests/pages" "src/utils"; do
@@ -157,7 +156,7 @@ pipeline {
                         set -e
 
                         echo "Creating config files for all environments..."
-                        cd "${CONTAINER_WORKDIR}"
+                        cd "${WORKSPACE}"
 
                         # Create config directory if it doesn't exist
                         mkdir -p config
@@ -257,7 +256,7 @@ EOF
                                 set -e
 
                                 echo "Running tests against DEV environment..."
-                                cd "${CONTAINER_WORKDIR}"
+                                cd "${WORKSPACE}"
 
                                 # Create test-results directory for dev
                                 mkdir -p test-results/dev
@@ -305,7 +304,7 @@ EOF
                                 set -e
 
                                 echo "Running tests against STAGE environment..."
-                                cd "${CONTAINER_WORKDIR}"
+                                cd "${WORKSPACE}"
 
                                 # Create test-results directory for stage
                                 mkdir -p test-results/stage
@@ -353,7 +352,7 @@ EOF
                                 set -e
 
                                 echo "Running tests against PROD environment..."
-                                cd "${CONTAINER_WORKDIR}"
+                                cd "${WORKSPACE}"
 
                                 # Create test-results directory for prod
                                 mkdir -p test-results/prod
@@ -452,7 +451,7 @@ EOF
                     sh '''
                         #!/bin/bash
                         echo "Generating test results summary..."
-                        cd "${CONTAINER_WORKDIR}"
+                        cd "${WORKSPACE}"
 
                         # Create a summary of test results
                         cat > test-results/summary.html << 'EOF'
