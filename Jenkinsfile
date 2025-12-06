@@ -7,6 +7,11 @@ pipeline {
         }
     }
 
+    parameters {
+        booleanParam(name: 'RUN_STAGE_TESTS', defaultValue: false, description: 'Run UI tests against STAGE environment')
+        booleanParam(name: 'RUN_PROD_TESTS', defaultValue: false, description: 'Run UI tests against PROD environment')
+    }
+
     environment {
         // Application settings
         BASE_URL = 'https://parabank.parasoft.com/parabank/'
@@ -296,6 +301,9 @@ EOF
                 }
 
                 stage('Stage Environment') {
+                    when {
+                        expression { params.RUN_STAGE_TESTS }
+                    }
                     steps {
                         script {
                             // Run tests against stage environment
@@ -344,6 +352,9 @@ EOF
                 }
 
                 stage('Prod Environment') {
+                    when {
+                        expression { params.RUN_PROD_TESTS }
+                    }
                     steps {
                         script {
                             // Run tests against prod environment
