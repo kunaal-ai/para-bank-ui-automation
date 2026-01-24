@@ -208,6 +208,7 @@ results/
 *.html
 *.xml
 *.json
+!config/grafana/provisioning/dashboards/*.json
 videos/
 screenshots/
 playwright-traces/
