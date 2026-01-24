@@ -82,9 +82,15 @@ def start_monitoring() -> bool:
 
     print("Starting Prometheus and Grafana...")
     compose_cmd = get_docker_compose_command()
-    run_command(compose_cmd + ["up", "-d"])
+    result = run_command(compose_cmd + ["up", "-d"], check=False)
+
+    if result is None:
+        print("\nFailed to start containers. Please check if Docker Desktop is running.")
+        return False
+
     print("\nMonitoring services started!")
     print("Prometheus UI available at: http://localhost:9090")
+    print("Pushgateway available at: http://localhost:9091")
     print("Grafana UI available at: http://localhost:3000")
     print("Grafana default credentials: admin/admin")
     return True

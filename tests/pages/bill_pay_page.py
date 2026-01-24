@@ -1,23 +1,46 @@
-"""Page objects for BillPay class."""
+"""Page actions for the Bill Pay page."""
 
 from playwright.sync_api import Page
 
+from .bill_pay_locators import BillPayLocators
 
-class BillPay:
-    """_summary_"""
+
+class BillPayPage:
+    """Low-level interactions with the Bill Pay page (no business rules)."""
 
     def __init__(self, page: Page) -> None:
         self.page = page
-        self.name_text = page.locator("input[name='payee.name']")
-        self.address_text = page.locator("input[name='payee.address.street' ]")
-        self.city_text = page.locator("input[name='payee.address.city' ]")
-        self.state_text = page.locator("input[name='payee.address.state' ]")
-        self.zip_code_text = page.locator("input[name='payee.address.zipCode' ]")
-        self.phone_no_text = page.locator("input[name='payee.phoneNumber' ]")
-        self.account_no = page.locator("input[name='payee.accountNumber' ]")
-        self.verify_acc_no_text = page.locator("input[name='verifyAccount' ]")
-        self.amount_text = page.locator("input[name='amount' ]")
-        self.send_payment_button = page.locator("input.button")
+        self.locators = BillPayLocators(page)
+
+    def fill_name(self, name: str) -> None:
+        self.locators.name_text.fill(name)
+
+    def fill_address(self, address: str) -> None:
+        self.locators.address_text.fill(address)
+
+    def fill_city(self, city: str) -> None:
+        self.locators.city_text.fill(city)
+
+    def fill_state(self, state: str) -> None:
+        self.locators.state_text.fill(state)
+
+    def fill_zip_code(self, zip_code: str) -> None:
+        self.locators.zip_code_text.fill(zip_code)
+
+    def fill_phone_no(self, phone_no: str) -> None:
+        self.locators.phone_no_text.fill(phone_no)
+
+    def fill_account_no(self, account_no: str) -> None:
+        self.locators.account_no.fill(account_no)
+
+    def fill_verify_account_no(self, verify_acc_no: str) -> None:
+        self.locators.verify_acc_no_text.fill(verify_acc_no)
+
+    def fill_amount(self, amount: str) -> None:
+        self.locators.amount_text.fill(amount)
+
+    def click_send_payment(self) -> None:
+        self.locators.send_payment_button.click()
 
     def submit_form(
         self,
@@ -31,26 +54,13 @@ class BillPay:
         verify_acc_no: str,
         amount: str,
     ) -> None:
-        """Submit pay form
-
-        Args:
-            name: Payee name
-            address: Payee street address
-            city: Payee city
-            state: Payee state
-            zip_code: Payee ZIP code
-            phone_no: Payee phone number
-            account_no: Payee account number
-            verify_acc_no: Verification of account number
-            amount: Payment amount
-        """
-        self.name_text.fill(name)
-        self.address_text.fill(address)
-        self.city_text.fill(city)
-        self.state_text.fill(state)
-        self.zip_code_text.fill(zip_code)
-        self.phone_no_text.fill(phone_no)
-        self.account_no.fill(account_no)
-        self.verify_acc_no_text.fill(verify_acc_no)
-        self.amount_text.fill(amount)
-        self.send_payment_button.click()
+        self.fill_name(name)
+        self.fill_address(address)
+        self.fill_city(city)
+        self.fill_state(state)
+        self.fill_zip_code(zip_code)
+        self.fill_phone_no(phone_no)
+        self.fill_account_no(account_no)
+        self.fill_verify_account_no(verify_acc_no)
+        self.fill_amount(amount)
+        self.click_send_payment()

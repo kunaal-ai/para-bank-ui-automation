@@ -75,7 +75,6 @@ class HomePage:
         self.password_text.fill(password)
         self.log_in_button.click()
 
-        # Verify login was successful
         expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"))
 
     def forget_login(self) -> None:

@@ -60,7 +60,7 @@ def push_metrics(metrics: Optional[Any] = None, job_name: str = "para-bank-tests
 
 
 # Test execution metrics
-class TestMetrics:
+class ExecutionMetrics:
     """Context manager for tracking test execution metrics"""
 
     def __init__(self, test_name: str = "default") -> None:
@@ -68,7 +68,7 @@ class TestMetrics:
         self.start_time: Optional[float] = None
         self.process = psutil.Process()
 
-    def __enter__(self) -> "TestMetrics":
+    def __enter__(self) -> "ExecutionMetrics":
         self.start_time = time.time()
         TEST_RUNS.inc()
         return self

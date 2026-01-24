@@ -47,19 +47,6 @@ junit_family = "legacy"
 junit_logging = "all"
 junit_duration_report = "call"
 
-# Playwright configuration
-[tool.pytest.ini_options.playwright]
-browser = "chromium"
-headless = true
-video = "retain-on-failure"
-trace = "retain-on-failure"
-viewport_width = 1280
-viewport_height = 800
-timeout = 30000
-navigation_timeout = 30000
-base_url = "https://parabank.parasoft.com/parabank/"
-screenshot = "only-on-failure"
-
 # Code formatting
 [tool.black]
 line-length = 100

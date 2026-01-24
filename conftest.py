@@ -1,6 +1,5 @@
 """Test configuration and fixtures for ParaBank UI automation."""
 import logging
-import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional
@@ -14,10 +13,13 @@ from _pytest.runner import CallInfo
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from config import Config
-from src.utils.metrics_pusher import TestMetrics, push_metrics
-from tests.pages.bill_pay_page import BillPay
+from src.utils.metrics_pusher import ExecutionMetrics
+from tests.pages.bill_pay_page import BillPayPage
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from tests.pages.home_login_page import HomePage
+from tests.pages.open_account_page import OpenAccountPage
+from tests.pages.request_loan_page import RequestLoanPage
+from tests.pages.update_contact_info_page import UpdateContactInfoPage
 
 # Set up logging directory
 log_dir = Path("logs")
@@ -45,12 +47,10 @@ def setup_logging() -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Console handler
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(formatter)
     console.setLevel(logging.DEBUG)
 
-    # File handler
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
@@ -78,7 +78,6 @@ def pytest_configure(config: PytestConfig) -> None:
     logger.info("Starting test session")
     logger.info(f"Log level: {logging.getLevelName(logger.getEffectiveLevel())}")
     logger.info("=" * 80)
-    config.test_metrics = TestMetrics()
 
 
 def pytest_runtest_setup(item: Item) -> None:
@@ -111,8 +110,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     session_logger.info("=" * 80)
     session_logger.info(f"Test session completed with status: {exitstatus}")
     session_logger.info("=" * 80)
-    if hasattr(session, "test_metrics"):
-        push_metrics(session.test_metrics)
+    # Metrics are pushed per-test in ExecutionMetrics context manager
 
 
 # Fixtures
@@ -156,7 +154,6 @@ def pytest_addoption(parser: Parser) -> None:
     # Browser selection should be done via:
     # 1. Environment config files (config/{env}.json) - recommended
     # 2. pytest-playwright options: --browser=chromium|firefox|webkit
-    # 3. pyproject.toml [tool.pytest.ini_options.playwright] section
 
 
 @pytest.fixture(scope="session")
@@ -321,16 +318,16 @@ def home_page(page: Page, base_url: str) -> HomePage:
 
 
 @pytest.fixture
-def bill_pay_page(page: Page) -> BillPay:
-    """Create a BillPay page object.
+def bill_pay_page(page: Page) -> BillPayPage:
+    """Create a BillPayPage actions object.
 
     Args:
         page: Browser page
 
     Returns:
-        Initialized BillPay instance
+        Initialized BillPayPage instance
     """
-    return BillPay(page)
+    return BillPayPage(page)
 
 
 @pytest.fixture
@@ -346,45 +343,68 @@ def payment_services_tab(page: Page) -> PaymentServicesTab:
     return PaymentServicesTab(page)
 
 
-# Session Management
 @pytest.fixture
-def user_login(
-    page: Page,
-    base_url: str,
-    request: FixtureRequest,
-    config: Dict[str, Any],
-) -> None:
-    """Manage user login session with state persistence.
+def open_account_page(page: Page) -> OpenAccountPage:
+    """Create an OpenAccountPage page object.
 
     Args:
         page: Browser page
-        base_url: Base URL of the application
-        request: Pytest fixture request
-        config: Test configuration
+
+    Returns:
+        Initialized OpenAccountPage instance
     """
-    # Get test user credentials from config
+    return OpenAccountPage(page)
+
+
+@pytest.fixture
+def request_loan_page(page: Page) -> RequestLoanPage:
+    """Create a RequestLoanPage page object.
+
+    Args:
+        page: Browser page
+
+    Returns:
+        Initialized RequestLoanPage instance
+    """
+    return RequestLoanPage(page)
+
+
+@pytest.fixture
+def update_contact_info_page(page: Page) -> UpdateContactInfoPage:
+    """Create an UpdateContactInfoPage page object.
+
+    Args:
+        page: Browser page
+
+    Returns:
+        Initialized UpdateContactInfoPage instance
+    """
+    return UpdateContactInfoPage(page)
+
+
+# Session Management
+@pytest.fixture
+def user_login(page: Page, base_url: str, request: FixtureRequest, config: Dict[str, Any]) -> None:
+    """Ensure the user is logged in, using a saved session if available."""
     test_user = config["test_user"]
-
-    # Check if we already have a saved state
     state_file = Path("state.json")
-    if state_file.exists():
-        # Restore the saved state
-        page.context.storage_state(path=str(state_file))
 
-        # Navigate to a page that requires authentication
+    # 1. Try to restore session from state.json
+    if state_file.exists():
+        page.context.storage_state(path=str(state_file))
         page.goto(f"{base_url}/overview.htm")
 
-        # Check if still logged in using expect
-        expect(page).to_have_title(re.compile(".*Accounts Overview.*"))
-        return
+        # Verify if we are actually logged in (title contains 'Accounts Overview')
+        if "Accounts Overview" in page.title():
+            return
 
-    # If no saved state or session expired, log in
+    # 2. Perform fresh login if session is missing or expired
     page.goto(base_url)
     page.fill("input[name='username']", test_user["username"])
     page.fill("input[name='password']", test_user["password"])
     page.click("input[value='Log In']")
 
-    # Wait for login to complete
+    # Verify login success
     expect(page.locator("#leftPanel p.smallText")).to_be_visible()
 
     # Save the state for future tests
@@ -408,16 +428,9 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]) -> Generator[Any
     pytest.current_test_name = item.nodeid.split("::")[-1]
 
 
-# Metrics Integration
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: Item, nextitem: Optional[Item]) -> Optional[bool]:
-    """Track test metrics for each test.
-
-    Args:
-        item: Current test item
-        nextitem: Next test item, if any
-
-    Returns:
-        None to continue with normal test execution
-    """
-    item.test_metrics = TestMetrics()
-    return None
+    """Track test metrics for each test using a context manager."""
+    test_name = item.nodeid.split("::")[-1]
+    with ExecutionMetrics(test_name):
+        return None  # Continue with normal execution
