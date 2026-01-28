@@ -8,8 +8,8 @@ Automated UI testing framework for ParaBank using Playwright, Python, and modern
 
 ## 🚀 Features
 
-- **Cross-browser Testing**: Support for Chromium, Firefox, and WebKit
-- **Parallel Execution**: Run tests in parallel with pytest-xdist
+- **Cross-browser Testing**: Native support for Chromium, Firefox, and WebKit (Safari)
+- **Parallel & Multi-Engine Execution**: Run tests in parallel across different browser engines simultaneously in CI/CD
 - **Rich Reporting**: Allure reports, JUnit XML, and HTML coverage reports
 - **CI/CD Ready**: Pre-configured for GitHub Actions and Jenkins with Docker
 - **Type Checking**: Full mypy integration for static type checking
@@ -115,6 +115,9 @@ Automated UI testing framework for ParaBank using Playwright, Python, and modern
    # Run tests with specific browser
    pytest --browser=firefox
    pytest --browser=webkit
+
+   # Run across all supported browsers
+   pytest --browser=chromium --browser=firefox --browser=webkit
 
    # Run smoke tests only
    pytest -m smoke

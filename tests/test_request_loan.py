@@ -35,3 +35,30 @@ class TestRequestLoan:
         expect(payment_services_tab.page.locator("#rightPanel h1.title").first).to_have_text(
             "Apply for a Loan"
         )
+
+    def test_request_loan_empty_fields(
+        self,
+        request_loan_page: RequestLoanPage,
+        payment_services_tab: PaymentServicesTab,
+    ) -> None:
+        """Verify validation when loan fields are empty."""
+        payment_services_tab.request_loan_link.click()
+
+        # Click Apply without filling anything
+        request_loan_page.apply_button.click()
+
+        # Should stay on page or show error
+        expect(request_loan_page.page.locator("h1.title").first).to_have_text("Apply for a Loan")
+
+    def test_request_loan_form_elements(
+        self,
+        request_loan_page: RequestLoanPage,
+        payment_services_tab: PaymentServicesTab,
+    ) -> None:
+        """Verify presence of all elements in the loan request form."""
+        payment_services_tab.request_loan_link.click()
+
+        expect(request_loan_page.amount_input).to_be_visible()
+        expect(request_loan_page.down_payment_input).to_be_visible()
+        expect(request_loan_page.from_account_dropdown).to_be_visible()
+        expect(request_loan_page.apply_button).to_be_visible()

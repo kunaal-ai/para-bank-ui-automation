@@ -20,6 +20,21 @@
     "liveNow": false,
     "panels": [
         {
+            "gridPos": {
+                "h": 3,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 100,
+            "options": {
+                "content": "<div style=\"text-align: center; padding: 10px;\">\n  <h1 style=\"color: #00D3FF; margin: 0;\">ParaBank UI Automation</h1>\n  <p style=\"color: #FFF; font-size: 1.2em; margin: 5px 0;\">Architected by <b>Kunaal</b></p>\n</div>",
+                "mode": "html"
+            },
+            "title": "",
+            "type": "text"
+        },
+        {
             "datasource": {
                 "type": "prometheus",
                 "uid": "Prometheus"
@@ -47,10 +62,10 @@
                 "overrides": []
             },
             "gridPos": {
-                "h": 8,
-                "w": 6,
-                "x": 0,
-                "y": 0
+                "h": 4,
+                "w": 4,
+                "x": 20,
+                "y": 3
             },
             "id": 1,
             "options": {
@@ -80,6 +95,242 @@
             ],
             "title": "Success Rate",
             "type": "gauge"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 4,
+                "y": 3
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "Prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum(test_passes_total) + sum(test_failures_total) + sum(test_skipped_total)",
+                    "range": true,
+                    "refId": "A"
+                }
+            ],
+            "title": "Total Test Cases Executed",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 8,
+                "y": 3
+            },
+            "id": 5,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "Prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum(test_passes_total)",
+                    "range": true,
+                    "refId": "A"
+                }
+            ],
+            "title": "Passed Tests",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "yellow",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 12,
+                "y": 3
+            },
+            "id": 7,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "Prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum(test_skipped_total)",
+                    "range": true,
+                    "refId": "A"
+                }
+            ],
+            "title": "Skipped Tests",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "Prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 16,
+                "y": 3
+            },
+            "id": 6,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "Prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "sum(test_failures_total)",
+                    "range": true,
+                    "refId": "A"
+                }
+            ],
+            "title": "Failed Tests",
+            "type": "stat"
         },
         {
             "datasource": {
@@ -136,8 +387,8 @@
             "gridPos": {
                 "h": 8,
                 "w": 12,
-                "x": 6,
-                "y": 0
+                "x": 0,
+                "y": 7
             },
             "id": 2,
             "options": {
@@ -166,65 +417,6 @@
             ],
             "title": "Avg Test Duration",
             "type": "timeseries"
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "Prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "blue",
-                                "value": null
-                            }
-                        ]
-                    }
-                },
-                "overrides": []
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 6,
-                "x": 18,
-                "y": 0
-            },
-            "id": 3,
-            "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
-                },
-                "textMode": "auto"
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus",
-                        "uid": "Prometheus"
-                    },
-                    "editorMode": "code",
-                    "expr": "sum(test_runs_total)",
-                    "range": true,
-                    "refId": "A"
-                }
-            ],
-            "title": "Total Test Runs",
-            "type": "stat"
         },
         {
             "datasource": {
@@ -280,9 +472,9 @@
             },
             "gridPos": {
                 "h": 8,
-                "w": 24,
-                "x": 0,
-                "y": 8
+                "w": 12,
+                "x": 12,
+                "y": 7
             },
             "id": 4,
             "options": {
@@ -329,7 +521,7 @@
     },
     "timepicker": {},
     "timezone": "",
-    "title": "Para Bank UI Automation Insight",
+    "title": "Kunaal's ParaBank Automation Dashboard",
     "uid": "parabank-insight",
     "version": 1,
     "weekStart": ""

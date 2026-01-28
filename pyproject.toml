@@ -33,7 +33,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml"
+addopts = "-v -n auto --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml --browser=chromium --browser=firefox --browser=webkit"
 markers = [
     "smoke: marks tests as smoke tests",
     "regression: marks tests as regression tests",

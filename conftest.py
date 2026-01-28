@@ -14,7 +14,9 @@ from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from config import Config
 from src.utils.metrics_pusher import ExecutionMetrics
+from tests.pages.account_overview_page import AccountOverviewPage
 from tests.pages.bill_pay_page import BillPayPage
+from tests.pages.find_transactions_page import FindTransactionsPage
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from tests.pages.home_login_page import HomePage
 from tests.pages.open_account_page import OpenAccountPage
@@ -116,23 +118,16 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 # Fixtures
 @pytest.fixture(scope="session")
 def browser_context_args(
-    browser_context_args: Dict[str, Any], config: Dict[str, Any]
+    browser_context_args: Dict[str, Any], config: Dict[str, Any], auth_state: Path
 ) -> Dict[str, Any]:
-    """Configure browser context with video recording and viewport settings.
-
-    Args:
-        browser_context_args: Default browser context arguments
-        config: Test configuration dictionary
-
-    Returns:
-        Dictionary of browser context arguments
-    """
+    """Unified browser context configuration with session reuse."""
     return {
         **browser_context_args,
         "viewport": config["viewport"],
         "ignore_https_errors": True,
         "record_video_dir": str(config["test_results_dir"] / "videos"),
         "record_video_size": config["viewport"],
+        "storage_state": str(auth_state) if auth_state.exists() else None,
     }
 
 
@@ -218,27 +213,6 @@ def browser_type_launch_args(
     if hasattr(env_config, "slow_mo") and env_config.slow_mo:
         browser_type_launch_args["slow_mo"] = env_config.slow_mo
     return browser_type_launch_args
-
-
-@pytest.fixture(scope="session")
-def get_browser_context_args(
-    browser_context_args: Dict[str, Any], config: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Configure browser context with video recording and viewport settings.
-
-    Args:
-        browser_context_args: Default browser context arguments
-        config: Test configuration
-
-    Returns:
-        Dictionary of browser context arguments
-    """
-    return {
-        **browser_context_args,
-        "viewport": config["viewport"],
-        "record_video_dir": str(config["test_results_dir"] / "videos"),
-        "record_video_size": {"width": 1920, "height": 1080},
-    }
 
 
 # Test Environment Setup
@@ -382,40 +356,66 @@ def update_contact_info_page(page: Page) -> UpdateContactInfoPage:
     return UpdateContactInfoPage(page)
 
 
-# Session Management
 @pytest.fixture
-def user_login(page: Page, base_url: str, request: FixtureRequest, config: Dict[str, Any]) -> None:
-    """Ensure the user is logged in, using a saved session if available."""
+def account_overview_page(page: Page) -> AccountOverviewPage:
+    """Create an AccountOverviewPage page object.
+
+    Args:
+        page: Browser page
+
+    Returns:
+        Initialized AccountOverviewPage instance
+    """
+    return AccountOverviewPage(page)
+
+
+@pytest.fixture
+def find_transactions_page(page: Page) -> FindTransactionsPage:
+    """Create a FindTransactionsPage page object.
+
+    Args:
+        page: Browser page
+
+    Returns:
+        Initialized FindTransactionsPage instance
+    """
+    return FindTransactionsPage(page)
+
+
+# Session Management
+@pytest.fixture(scope="session")
+def auth_state(browser: Browser, config: Dict[str, Any], base_url: str) -> Path:
+    """Perform login once at the start of the session and return the state file path."""
+    state_file = Path("test-results/state.json")
+    state_file.parent.mkdir(exist_ok=True)
+
+    context = browser.new_context()
+    page = context.new_page()
+
     test_user = config["test_user"]
-    state_file = Path("state.json")
-
-    # 1. Try to restore session from state.json
-    if state_file.exists():
-        page.context.storage_state(path=str(state_file))
-        page.goto(f"{base_url}/overview.htm")
-
-        # Verify if we are actually logged in (title contains 'Accounts Overview')
-        if "Accounts Overview" in page.title():
-            return
-
-    # 2. Perform fresh login if session is missing or expired
     page.goto(base_url)
     page.fill("input[name='username']", test_user["username"])
     page.fill("input[name='password']", test_user["password"])
     page.click("input[value='Log In']")
 
-    # Verify login success
-    expect(page.locator("#leftPanel p.smallText")).to_be_visible()
+    # Wait for login to complete
+    expect(page.locator("#leftPanel p.smallText")).to_be_visible(timeout=10000)
 
-    # Save the state for future tests
-    page.context.storage_state(path=str(state_file))
+    context.storage_state(path=str(state_file))
+    context.close()
+    return state_file
 
-    # Add finalizer to clean up state file
-    def cleanup() -> None:
-        if state_file.exists():
-            state_file.unlink()
 
-    request.addfinalizer(cleanup)
+@pytest.fixture
+def user_login(page: Page, auth_state: Path, base_url: str) -> None:
+    """Apply the pre-authenticated state to the current page. This is extremely fast."""
+    # The browser context is already created by playwright fixture.
+    # We navigate directly to the logged-in area.
+    page.goto(f"{base_url}/overview.htm")
+
+    # If for some reason we aren't logged in, redirect to login (safeguard)
+    if "Accounts Overview" not in page.title():
+        page.goto(base_url)
 
 
 # Test Hooks
@@ -424,13 +424,23 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]) -> Generator[Any
     """Track test failures for screenshots."""
     outcome: Any = yield
     result: Any = outcome.get_result()
+    # Capture the outcome of the test (passed, failed, skipped)
+    if result.skipped:
+        item.status = "skipped"
+    elif result.failed:
+        item.status = "failed"
+    elif result.passed and result.when == "call":
+        item.status = "passed"
+
     pytest.test_failed = result.failed
     pytest.current_test_name = item.nodeid.split("::")[-1]
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_runtest_protocol(item: Item, nextitem: Optional[Item]) -> Optional[bool]:
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_protocol(item: Item, nextitem: Optional[Item]) -> Generator[None, None, None]:
     """Track test metrics for each test using a context manager."""
     test_name = item.nodeid.split("::")[-1]
-    with ExecutionMetrics(test_name):
-        return None  # Continue with normal execution
+    metrics = ExecutionMetrics(test_name)
+    with metrics:
+        yield
+        metrics.status = getattr(item, "status", "passed")

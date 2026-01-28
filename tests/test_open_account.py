@@ -67,3 +67,16 @@ def test_open_savings_account(
     expect(open_account_page.account_opened_message).to_have_text(
         "Congratulations, your account is now open."
     )
+
+
+def test_open_account_type_options(
+    user_login: None,
+    payment_services_tab: PaymentServicesTab,
+    open_account_page: OpenAccountPage,
+) -> None:
+    """Verify that both Checking and Savings account types are available."""
+    payment_services_tab.open_new_account_link.click()
+
+    options = open_account_page.account_type_select.locator("option").all_inner_texts()
+    assert "CHECKING" in [o.upper() for o in options]
+    assert any("SAVING" in o.upper() for o in options)

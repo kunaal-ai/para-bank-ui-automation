@@ -16,6 +16,8 @@ class HomePage:
         self.password_text = page.locator('input[name="password"]')
         self.log_in_button = page.locator("input.button")
         self.forget_login_button = page.locator("#loginPanel > p:nth-child(2) > a:nth-child(1)")
+        self.contact_link = page.locator("li.contact a")
+        self.error_message = page.locator("p.error")
 
     def load(self, base_url: Optional[str] = None) -> None:
         """Navigate to the home page.
@@ -58,13 +60,19 @@ class HomePage:
             return True
         return False
 
-    def user_log_in(self, username: Optional[str] = None, password: Optional[str] = None) -> None:
+    def user_log_in(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        assert_success: bool = True,
+    ) -> None:
         """Log in with the provided credentials or from environment variables.
 
         Args:
             username: Username to log in with. If not provided, uses 'john'.
-            password: Password to log in with. If not provided,  # noqa: E501
+            password: Password to log in with. If not provided,
                 uses PASSWORD environment variable.
+            assert_success: Whether to assert that the login was successful.
         """
         if username is None:
             username = "john"
@@ -75,7 +83,12 @@ class HomePage:
         self.password_text.fill(password)
         self.log_in_button.click()
 
-        expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"))
+        if assert_success:
+            expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"))
+
+    def get_error_message(self) -> str:
+        """Get the error message text."""
+        return str(self.error_message.inner_text())
 
     def forget_login(self) -> None:
         """Click the forget login button."""

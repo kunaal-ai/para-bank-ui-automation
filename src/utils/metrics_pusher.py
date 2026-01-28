@@ -25,6 +25,11 @@ TEST_FAILURES = Counter(
     "Total number of failed tests",
     registry=registry,
 )
+TEST_SKIPPED = Counter(
+    "test_skipped_total",
+    "Total number of skipped tests",
+    registry=registry,
+)
 TEST_DURATION = Histogram(
     "test_duration_seconds",
     "Test execution time in seconds",
@@ -67,6 +72,7 @@ class ExecutionMetrics:
         self.test_name = test_name
         self.start_time: Optional[float] = None
         self.process = psutil.Process()
+        self.status: Optional[str] = None
 
     def __enter__(self) -> "ExecutionMetrics":
         self.start_time = time.time()
@@ -92,7 +98,14 @@ class ExecutionMetrics:
         performance_score = max(0, min(100, 100 - duration))
         TEST_PERFORMANCE.observe(performance_score)
 
-        if exc_type is None:
+        if self.status:
+            if self.status == "passed":
+                TEST_PASSES.inc()
+            elif self.status == "skipped":
+                TEST_SKIPPED.inc()
+            else:
+                TEST_FAILURES.inc()
+        elif exc_type is None:
             TEST_PASSES.inc()
         else:
             TEST_FAILURES.inc()

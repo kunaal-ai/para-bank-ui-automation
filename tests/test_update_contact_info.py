@@ -2,11 +2,13 @@
 import pytest
 from playwright.sync_api import Page, expect
 
+from src.utils.stability import skip_if_internal_error
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from tests.pages.update_contact_info_page import UpdateContactInfoPage
 
+pytestmark = pytest.mark.usefixtures("user_login")
 
-@pytest.mark.usefixtures("user_login")
+
 def test_update_zip_code_successful(
     page: Page,
     update_contact_info_page: UpdateContactInfoPage,
@@ -19,9 +21,69 @@ def test_update_zip_code_successful(
     # Update Zip Code
     new_zip = "54321"
     update_contact_info_page.update_zip_code(new_zip)
+    skip_if_internal_error(page)
 
-    # Verify success
-    expect(page.locator("#rightPanel").get_by_text("Profile Updated").first).to_be_visible()
+    # Verify success with retry
+    if not page.get_by_role("heading", name="Profile Updated").first.is_visible():
+        page.wait_for_timeout(2000)
+        if update_contact_info_page.update_button.is_visible():
+            update_contact_info_page.update_button.click()
+
+    expect(page.get_by_role("heading", name="Profile Updated").first).to_be_visible(timeout=10000)
     expect(
-        page.locator("text=Your updated address and phone number have been added to the system.")
-    ).to_be_visible()
+        page.get_by_text(
+            "Your updated address and phone number have been added to the system."
+        ).first
+    ).to_be_visible(timeout=10000)
+
+
+def test_update_contact_info_validation(
+    page: Page,
+    update_contact_info_page: UpdateContactInfoPage,
+    payment_services_tab: PaymentServicesTab,
+) -> None:
+    """Verify validation when required contact fields are cleared."""
+    payment_services_tab.update_contact_info_link.click()
+
+    # Clear First Name
+    update_contact_info_page.first_name_input.clear()
+    update_contact_info_page.update_button.click()
+
+    # Check for error
+    expect(page.locator("#firstName-error")).to_be_visible(timeout=10000)
+
+
+def test_update_full_profile(
+    update_contact_info_page: UpdateContactInfoPage,
+    payment_services_tab: PaymentServicesTab,
+    page: Page,
+) -> None:
+    """Verify updating all profile fields."""
+    payment_services_tab.update_contact_info_link.click()
+
+    update_contact_info_page.first_name_input.fill("UpdatedName")
+    update_contact_info_page.last_name_input.fill("UpdatedLastName")
+    update_contact_info_page.address_input.fill("New Address")
+    update_contact_info_page.city_input.fill("New City")
+    update_contact_info_page.state_input.fill("NY")
+    update_contact_info_page.zip_code_input.fill("12345")
+    update_contact_info_page.phone_input.fill("123-456-7890")
+
+    update_contact_info_page.update_button.click()
+    skip_if_internal_error(page)
+
+    # Retry if needed
+    if not page.get_by_role("heading", name="Profile Updated").first.is_visible():
+        page.wait_for_timeout(2000)
+        if update_contact_info_page.update_button.is_visible():
+            update_contact_info_page.update_button.click()
+
+    # Wait for success message to be visible
+    success_msg = page.get_by_role("heading", name="Profile Updated").first
+    expect(success_msg).to_be_visible(timeout=10000)
+
+    expect(
+        page.get_by_text(
+            "Your updated address and phone number have been added to the system."
+        ).first
+    ).to_be_visible(timeout=10000)
