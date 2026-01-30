@@ -10,6 +10,7 @@ from tests.pages.request_loan_page import RequestLoanPage
 class TestRequestLoan:
     """Class to group tests for request loan."""
 
+    @pytest.mark.flaky
     def test_request_loan_denied_insufficient_funds(
         self,
         page: Page,
@@ -29,6 +30,7 @@ class TestRequestLoan:
             page.locator("text=You do not have sufficient funds for the given down payment.")
         ).to_be_visible()
 
+    @pytest.mark.flaky
     def test_request_loan_navigation(self, payment_services_tab: PaymentServicesTab) -> None:
         """Verify navigation to the request loan page."""
         payment_services_tab.request_loan_link.click()
@@ -36,6 +38,7 @@ class TestRequestLoan:
             "Apply for a Loan"
         )
 
+    @pytest.mark.flaky
     def test_request_loan_empty_fields(
         self,
         request_loan_page: RequestLoanPage,
@@ -50,6 +53,7 @@ class TestRequestLoan:
         # Should stay on page or show error
         expect(request_loan_page.page.locator("h1.title").first).to_have_text("Apply for a Loan")
 
+    @pytest.mark.flaky
     def test_request_loan_form_elements(
         self,
         request_loan_page: RequestLoanPage,

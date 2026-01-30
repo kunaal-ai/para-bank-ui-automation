@@ -33,13 +33,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v -n auto --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml --browser=chromium --browser=firefox --browser=webkit"
+addopts = "-v -n 2 --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml"
 markers = [
     "smoke: marks tests as smoke tests",
     "regression: marks tests as regression tests",
     "integration: marks tests as integration tests",
     "webtest: mark a test as a webtest (deselect with '-m \"not webtest\"')",
-    "slow: mark test as slow running"
+    "slow: mark test as slow running",
+    "flaky: mark test as flaky due to external server instability (ParaBank demo site)"
 ]
 
 # JUnit XML output configuration

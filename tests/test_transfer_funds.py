@@ -3,20 +3,23 @@
 import logging
 import re
 
+import pytest
 from playwright.sync_api import Page, expect
 
+from src.utils.stability import safe_click
 from tests.pages.transfer_funds_page import TransferFundsPage
 
 logger = logging.getLogger("parabank")
 
 
+@pytest.mark.flaky
 def test_transfer_funds_success(
     user_login: None,
     payment_services_tab: object,
     page: Page,
     base_url: str,
 ) -> None:
-    payment_services_tab.transfer_funds_link.click()
+    safe_click(payment_services_tab.transfer_funds_link)
     page.wait_for_url("**/transfer.htm")
 
     transfer_page = TransferFundsPage(page)
@@ -41,6 +44,7 @@ def test_transfer_funds_success(
     expect(page.locator("h1.title:visible")).not_to_have_text("Transfer Funds")
 
 
+@pytest.mark.flaky
 def test_transfer_funds_empty_amount(
     user_login: None,
     payment_services_tab: object,
@@ -58,13 +62,14 @@ def test_transfer_funds_empty_amount(
     expect(page.locator("h1.title").first).to_have_text("Transfer Funds")
 
 
+@pytest.mark.flaky
 def test_transfer_funds_navigation_and_fields(
     user_login: None,
     payment_services_tab: object,
     page: Page,
 ) -> None:
     """Test navigation to transfer funds and presence of necessary fields."""
-    payment_services_tab.transfer_funds_link.click()
+    safe_click(payment_services_tab.transfer_funds_link)
     transfer_page = TransferFundsPage(page)
 
     expect(transfer_page.amount_input).to_be_visible()

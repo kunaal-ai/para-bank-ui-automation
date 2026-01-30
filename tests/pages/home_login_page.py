@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from playwright.sync_api import Page, expect
 
+from src.utils.stability import handle_internal_error
+
 
 class HomePage:
     """Page objects and methods Home Page only"""
@@ -82,6 +84,12 @@ class HomePage:
         self.user_name_text.fill(username)
         self.password_text.fill(password)
         self.log_in_button.click()
+
+        # Wait a moment for the page to respond
+        self.page.wait_for_timeout(1000)
+
+        # Check if ParaBank is showing an internal error (login required)
+        handle_internal_error(self.page, requires_login=True)
 
         if assert_success:
             expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"))

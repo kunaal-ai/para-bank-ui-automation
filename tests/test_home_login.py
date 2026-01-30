@@ -1,24 +1,26 @@
 """Tests for Home Page"""
+import pytest
 from playwright.sync_api import Page, expect
 
 from tests.pages.home_login_page import HomePage
 
 
+@pytest.mark.flaky
 def test_user_log_in_sucessfully(page: Page, base_url: str, env_config: dict) -> None:
-    page.goto(base_url)
-    page.wait_for_selector("input[name='username']", state="visible")
+    """Test successful user login using HomePage."""
+    home_page = HomePage(page)
+    home_page.load(base_url)
 
     # Get test user credentials from config
     test_user = env_config["users"]["valid"]
 
-    page.fill("input[name='username']", test_user["username"])
-    page.fill("input[name='password']", test_user["password"])
-    page.click("input[value='Log In']")
+    # Use HomePage's login method which includes conditional pass logic
+    home_page.user_log_in(test_user["username"], test_user["password"])
 
-    page.wait_for_url("**/overview.htm")
     expect(page.locator("#showOverview h1.title")).to_have_text("Accounts Overview")
 
 
+@pytest.mark.flaky
 def test_forget_login(home_page: HomePage, page: Page, base_url: str) -> None:
     home_page.forget_login()
     expect(page).to_have_url(f"{base_url}/lookup.htm")

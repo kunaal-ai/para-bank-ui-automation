@@ -117,7 +117,7 @@ Automated UI testing framework for ParaBank using Playwright, Python, and modern
    pytest --browser=webkit
 
    # Run across all supported browsers
-   pytest --browser=chromium --browser=firefox --browser=webkit
+   pytest --browser chromium --browser firefox --browser webkit
 
    # Run smoke tests only
    pytest -m smoke
