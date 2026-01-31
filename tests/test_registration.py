@@ -1,6 +1,4 @@
-"""Tests for User Registration."""
-import random
-import string
+import uuid
 
 from playwright.sync_api import Page, expect
 
@@ -18,9 +16,8 @@ def test_register_new_user(page: Page, base_url: str) -> None:
 
     register_page = RegisterPage(page)
 
-    # Generate random username
-    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    username = f"user_{random_suffix}"
+    # Generate unique username using UUID
+    username = f"user_{uuid.uuid4().hex[:12]}"
 
     user_data = {
         "first_name": "Test",
@@ -36,7 +33,7 @@ def test_register_new_user(page: Page, base_url: str) -> None:
     }
 
     register_page.register(user_data)
-    register_page.verify_registration_success(username)
+    register_page.verify_registration_success(username, user_data["password"])
 
 
 def test_registration_validation_errors(page: Page, base_url: str) -> None:
@@ -65,9 +62,8 @@ def test_registration_duplicate_username(page: Page, base_url: str) -> None:
     page.get_by_role("link", name="Register").click()
     register_page = RegisterPage(page)
 
-    # First registration
-    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    username = f"dup_{random_suffix}"
+    # First registration with unique username
+    username = f"dup_{uuid.uuid4().hex[:12]}"
     user_data = {
         "first_name": "Dup",
         "last_name": "User",
@@ -75,7 +71,7 @@ def test_registration_duplicate_username(page: Page, base_url: str) -> None:
         "password": "password123",
     }
     register_page.register(user_data)
-    register_page.verify_registration_success(username)
+    register_page.verify_registration_success(username, user_data["password"])
 
     # Logout to try registering again with same username
     page.get_by_role("link", name="Log Out").click()
@@ -97,7 +93,12 @@ def test_registration_password_mismatch(page: Page, base_url: str) -> None:
 
     register_page.first_name_input.fill("Mismatch")
     register_page.last_name_input.fill("User")
-    register_page.username_input.fill("mismatch_user")
+    # Generate unique mismatch_user using UUID
+    username = f"mismatch_{uuid.uuid4().hex[:12]}"
+
+    register_page.first_name_input.fill("Mismatch")
+    register_page.last_name_input.fill("User")
+    register_page.username_input.fill(username)
     register_page.password_input.fill("password123")
     register_page.confirm_password_input.fill("different_password")
     register_page.register_button.click()

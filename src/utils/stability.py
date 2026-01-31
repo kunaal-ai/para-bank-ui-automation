@@ -1,10 +1,11 @@
 """Stability utilities for handling ParaBank demo site instability."""
 import logging
+import time
 from typing import Any, Callable, Optional
 
 import pytest
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import Page
+from playwright.sync_api import Locator, Page
 
 
 def handle_internal_error(page: Page, requires_login: bool = True) -> None:
@@ -54,7 +55,7 @@ def skip_if_internal_error(page: Page) -> None:
     handle_internal_error(page, requires_login=False)
 
 
-def safe_click(locator: Any, retry_on_timeout: bool = False) -> None:
+def safe_click(locator: Any, retry_on_timeout: bool = False, timeout: int = 10000) -> None:
     """
     Perform a more robust click by ensuring the element is settled
     and retrying if it's intercepted or unresponsive.
@@ -62,19 +63,18 @@ def safe_click(locator: Any, retry_on_timeout: bool = False) -> None:
     Args:
         locator: The Playwright locator to click
         retry_on_timeout: If True, retry with page reload on timeout (default: False for speed)
+        timeout: Timeout for the click operation in milliseconds (default: 10000)
     """
+    # Handle the fact that locator might be a locator or just a thing that has a page
     page = locator.page
 
     def _do_click() -> None:
-        # 1. Ensure it's attached and visible (reduced timeout)
-        locator.wait_for(state="visible", timeout=10000)  # Reduced from 30s
+        # 1. Ensure it's attached and visible (balanced timeout for slow server)
+        locator.wait_for(state="visible", timeout=20000)
 
-        # 2. Use a force click if standard click hangs
-        try:
-            locator.click(timeout=3000)  # Reduced from 5s
-        except Exception:
-            # Fallback for intercepted clicks or slow hydration
-            locator.click(force=True, timeout=2000)
+        # We avoid blind fallbacks for clicks that might trigger server-side state changes
+        # (like registration)
+        locator.click(timeout=timeout)
 
     if retry_on_timeout:
         retry_with_reload(page, _do_click, max_retries=1)
@@ -102,12 +102,15 @@ def retry_with_reload(
         The original exception if all retries fail
     """
     logger = logging.getLogger("parabank")
-    last_error: Optional[PlaywrightTimeoutError] = None
+    last_error: Optional[Exception] = None
 
     for attempt in range(max_retries + 1):
         try:
             return action_func()
-        except PlaywrightTimeoutError as e:
+        except (PlaywrightTimeoutError, Exception) as e:
+            if not isinstance(e, PlaywrightTimeoutError) and "timeout" not in str(e).lower():
+                raise e
+
             last_error = e
             if attempt < max_retries:
                 logger.warning(f"Timeout on attempt {attempt + 1}, reloading page and retrying...")
@@ -123,3 +126,30 @@ def retry_with_reload(
     if last_error:
         raise last_error
     return None
+
+
+def wait_for_options(locator: Locator, min_options: int = 1, timeout: int = 15000) -> None:
+    """Wait for a select/dropdown to have at least min_options.
+
+    This uses a polling loop for maximum reliability in parallel execution.
+    """
+    logger = logging.getLogger("parabank")
+    start_time = time.time()
+
+    while time.time() - start_time < (timeout / 1000):
+        try:
+            options = locator.locator("option").all_inner_texts()
+            # Filter out empty options or "Loading..."
+            valid_options = [o for o in options if o.strip() != "" and "loading" not in o.lower()]
+            if len(valid_options) >= min_options:
+                return
+        except Exception:
+            pass  # nosec: B110 (Expected timeout/visibility failure)
+
+        time.sleep(0.5)
+
+    logger.warning(f"Timed out waiting for {min_options} options in dropdown after {timeout}ms")
+    # Raise a clear error if it fails
+    raise PlaywrightTimeoutError(
+        f"Dropdown did not populate with {min_options} options in {timeout}ms"
+    )

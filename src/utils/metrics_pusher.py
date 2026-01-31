@@ -9,7 +9,7 @@ tests complete.
 
 import time
 import types
-from typing import Any, Optional, Type
+from typing import Optional, Type
 
 import psutil
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, push_to_gateway
@@ -50,16 +50,20 @@ TEST_PERFORMANCE = Histogram(
 
 
 # Function to push metrics
-def push_metrics(metrics: Optional[Any] = None, job_name: str = "para-bank-tests") -> None:
+def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict] = None) -> None:
     """Push metrics to the Pushgateway
 
     Args:
-        metrics: Optional TestMetrics object (for backward compatibility)
         job_name: Name of the job to identify the metrics in Prometheus
+        grouping_key: Optional dictionary of labels for grouping metrics (e.g., {"worker": "gw0"})
     """
     try:
-        push_to_gateway("localhost:9091", job=job_name, registry=registry)
-        print("Metrics pushed successfully to Pushgateway")
+        push_to_gateway(
+            "localhost:9091", job=job_name, registry=registry, grouping_key=grouping_key
+        )
+        print(
+            f"Metrics pushed successfully to Pushgateway (job={job_name}, grouping={grouping_key})"
+        )
     except Exception as e:
         print(f"Error pushing metrics: {e}")
 
@@ -68,8 +72,9 @@ def push_metrics(metrics: Optional[Any] = None, job_name: str = "para-bank-tests
 class ExecutionMetrics:
     """Context manager for tracking test execution metrics"""
 
-    def __init__(self, test_name: str = "default") -> None:
+    def __init__(self, test_name: str = "default", grouping_key: Optional[dict] = None) -> None:
         self.test_name = test_name
+        self.grouping_key = grouping_key
         self.start_time: Optional[float] = None
         self.process = psutil.Process()
         self.status: Optional[str] = None
@@ -110,8 +115,8 @@ class ExecutionMetrics:
         else:
             TEST_FAILURES.inc()
 
-        # Push metrics after each test
-        push_metrics()
+        # Push metrics after each test with the grouping key
+        push_metrics(grouping_key=self.grouping_key)
 
 
 # For direct execution

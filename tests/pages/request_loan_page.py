@@ -3,6 +3,8 @@ import logging
 
 from playwright.sync_api import Page, expect
 
+from src.utils.stability import wait_for_options
+
 logger = logging.getLogger("parabank")
 
 
@@ -27,6 +29,7 @@ class RequestLoanPage:
         self.down_payment_input.fill(down_payment)
 
         if from_account:
+            wait_for_options(self.from_account_dropdown, min_options=1)
             self.from_account_dropdown.select_option(label=from_account)
 
         self.apply_button.click()

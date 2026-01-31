@@ -3,6 +3,7 @@ import logging
 
 from playwright.sync_api import Page, expect
 
+from src.utils.stability import handle_internal_error
 from tests.pages.bill_pay_page import BillPayPage
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 
@@ -17,6 +18,7 @@ def test_submit_form_with_correct_values(
     base_url: str,
 ) -> None:
     payment_services_tab.bill_pay_link.click()
+    handle_internal_error(page, requires_login=True)
 
     test_data = {
         "name": "Test Payee",
@@ -38,9 +40,11 @@ def test_bill_pay_validation_errors(
     user_login: None,
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
+    page: Page,
 ) -> None:
     """Test that validation errors appear when fields are missing."""
     payment_services_tab.bill_pay_link.click()
+    handle_internal_error(page, requires_login=True)
 
     # Click send payment without filling anything
     bill_pay_page.click_send_payment()
@@ -63,9 +67,11 @@ def test_bill_pay_mismatch_account(
     user_login: None,
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
+    page: Page,
 ) -> None:
     """Test bill pay validation error when account numbers do not match."""
     payment_services_tab.bill_pay_link.click()
+    handle_internal_error(page, requires_login=True)
 
     test_data = {
         "name": "Mismatch Payee",
@@ -86,9 +92,11 @@ def test_bill_pay_invalid_amount(
     user_login: None,
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
+    page: Page,
 ) -> None:
     """Test bill pay with a non-numeric amount."""
     payment_services_tab.bill_pay_link.click()
+    handle_internal_error(page, requires_login=True)
 
     test_data = {
         "name": "Invalid Amount Payee",

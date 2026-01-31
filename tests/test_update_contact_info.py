@@ -1,11 +1,14 @@
 """Tests for Updating Contact Info."""
+import logging
+
 import pytest
 from playwright.sync_api import Page, expect
 
-from src.utils.stability import skip_if_internal_error
+from src.utils.stability import handle_internal_error
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 from tests.pages.update_contact_info_page import UpdateContactInfoPage
 
+logger = logging.getLogger("parabank")
 pytestmark = pytest.mark.usefixtures("user_login")
 
 
@@ -22,18 +25,19 @@ def test_update_zip_code_successful(
     # Update Zip Code
     new_zip = "54321"
     update_contact_info_page.update_zip_code(new_zip)
-    skip_if_internal_error(page)
 
-    # Verify success with retry
-    if not page.get_by_role("heading", name="Profile Updated").first.is_visible():
-        if update_contact_info_page.update_button.is_visible():
-            update_contact_info_page.update_button.click()
+    # Wait for page navigation or success indicator
+    page.wait_for_timeout(1000)  # Allow JS hydration
+    handle_internal_error(page, requires_login=True)
 
-    expect(page.get_by_role("heading", name="Profile Updated").first).to_be_visible(timeout=10000)
+    # Use robust CSS locator for title
+    success_title = page.locator("#rightPanel .title")
+    expect(success_title).to_contain_text("Profile Updated", timeout=15000)
+
     expect(
-        page.get_by_text(
-            "Your updated address and phone number have been added to the system."
-        ).first
+        page.locator("#rightPanel p")
+        .get_by_text("Your updated address and phone number have been added to the system.")
+        .first
     ).to_be_visible(timeout=10000)
 
 
@@ -72,19 +76,17 @@ def test_update_full_profile(
     update_contact_info_page.phone_input.fill("123-456-7890")
 
     update_contact_info_page.update_button.click()
-    skip_if_internal_error(page)
 
-    # Retry if needed
-    if not page.get_by_role("heading", name="Profile Updated").first.is_visible():
-        if update_contact_info_page.update_button.is_visible():
-            update_contact_info_page.update_button.click()
+    # Wait for page navigation or success indicator
+    page.wait_for_timeout(1000)  # Allow JS hydration
+    handle_internal_error(page, requires_login=True)
 
-    # Wait for success message to be visible
-    success_msg = page.get_by_role("heading", name="Profile Updated").first
-    expect(success_msg).to_be_visible(timeout=10000)
+    # Use robust CSS locator for title
+    success_title = page.locator("#rightPanel .title")
+    expect(success_title).to_contain_text("Profile Updated", timeout=15000)
 
     expect(
-        page.get_by_text(
-            "Your updated address and phone number have been added to the system."
-        ).first
+        page.locator("#rightPanel p")
+        .get_by_text("Your updated address and phone number have been added to the system.")
+        .first
     ).to_be_visible(timeout=10000)

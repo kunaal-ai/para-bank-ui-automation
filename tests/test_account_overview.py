@@ -50,6 +50,8 @@ def test_account_activity_filtering(
     page.select_option("#transactionType", "All")
     page.click("input[value='Go']")
 
+    # Wait for table to be attached and visible
+    page.wait_for_selector("#transactionTable", state="visible", timeout=10000)
     expect(page.locator("#transactionTable")).to_be_visible()
 
 

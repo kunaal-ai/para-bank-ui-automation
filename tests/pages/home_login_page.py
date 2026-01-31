@@ -1,12 +1,14 @@
-"""Home Page."""
 import json
+import logging
 import os
 import re
 from typing import Any, Optional
 
 from playwright.sync_api import Page, expect
 
-from src.utils.stability import handle_internal_error
+from src.utils.stability import handle_internal_error, retry_with_reload
+
+logger = logging.getLogger("parabank")
 
 
 class HomePage:
@@ -16,7 +18,7 @@ class HomePage:
         self.page = page
         self.user_name_text = page.locator('input[name="username"]')
         self.password_text = page.locator('input[name="password"]')
-        self.log_in_button = page.locator("input.button")
+        self.log_in_button = page.locator('input[value="Log In"]')
         self.forget_login_button = page.locator("#loginPanel > p:nth-child(2) > a:nth-child(1)")
         self.contact_link = page.locator("li.contact a")
         self.error_message = page.locator("p.error")
@@ -81,18 +83,38 @@ class HomePage:
         if password is None:
             password = os.environ.get("PASSWORD", "demo")
 
-        self.user_name_text.fill(username)
-        self.password_text.fill(password)
-        self.log_in_button.click()
+        # Check if already logged in (ParaBank displays 'Welcome [Name]' and 'Log Out' link)
+        logout_link = self.page.get_by_role("link", name="Log Out")
+        if logout_link.is_visible(timeout=2000):
+            logger.info("Already logged in. Skipping login steps.")
+            if assert_success:
+                expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"), timeout=5000)
+            return
 
-        # Wait a moment for the page to respond
-        self.page.wait_for_timeout(1000)
+        def _do_login() -> None:
+            self.user_name_text.fill(username)
+            self.password_text.fill(password)
+            self.log_in_button.click()
 
-        # Check if ParaBank is showing an internal error (login required)
-        handle_internal_error(self.page, requires_login=True)
+            # Check for immediate internal error
+            handle_internal_error(self.page, requires_login=True)
 
-        if assert_success:
-            expect(self.page).to_have_url(re.compile(r".*/overview\.htm$"))
+            # Wait for success page
+            if assert_success:
+                try:
+                    self.page.wait_for_url(re.compile(r".*/overview\.htm$"), timeout=10000)
+                except Exception:
+                    # If we didn't reach overview, maybe it's just slow
+                    # Check again after handle_internal_error fallback
+                    handle_internal_error(self.page, requires_login=True)
+                    # Use a short explicit wait as fallback
+                    self.page.wait_for_timeout(2000)
+                    if assert_success:
+                        expect(self.page).to_have_url(
+                            re.compile(r".*/overview\.htm$"), timeout=5000
+                        )
+
+        retry_with_reload(self.page, _do_login, max_retries=1)
 
     def get_error_message(self) -> str:
         """Get the error message text."""

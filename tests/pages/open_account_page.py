@@ -4,6 +4,8 @@ from typing import Optional
 
 from playwright.sync_api import Page
 
+from src.utils.stability import wait_for_options
+
 
 class OpenAccountPage:
     """Page object model for the Open New Account page."""
@@ -18,7 +20,7 @@ class OpenAccountPage:
 
     def select_account_type(self, account_type: str) -> None:
         """Select account type, handling both 'SAVING' and 'SAVINGS' labels."""
-        self.account_type_select.locator("option").first.wait_for(state="attached", timeout=10000)
+        wait_for_options(self.account_type_select, min_options=2)
 
         # ParaBank sometimes uses 'SAVING' and sometimes 'SAVINGS'
         if account_type.upper() in ["SAVING", "SAVINGS"]:
@@ -32,7 +34,7 @@ class OpenAccountPage:
 
     def select_from_account_by_index(self, index: int = 0) -> None:
         """Select a source account by index in the dropdown."""
-        self.from_account_select.locator("option").first.wait_for(state="attached", timeout=10000)
+        wait_for_options(self.from_account_select, min_options=1)
         self.from_account_select.select_option(index=index)
 
     def open_new_account(

@@ -157,12 +157,13 @@ def browser_context_args(
         "record_video_size": config["viewport"],
     }
 
-    # Do not use saved state for login tests or registration tests
-    is_login_test = (
-        "test_login" in request.node.nodeid or "test_registration" in request.node.nodeid
+    # Do not use saved state for login, registration, home UI, or forgot login tests
+    unauthenticated_keywords = ["login", "registration", "home_page_ui", "forgot_login", "index"]
+    is_unauthenticated_test = any(
+        kw in request.node.nodeid.lower() for kw in unauthenticated_keywords
     )
     # Only use auth_state if it exists and has content (not empty)
-    if not is_login_test and auth_state.exists() and auth_state.stat().st_size > 0:
+    if not is_unauthenticated_test and auth_state.exists() and auth_state.stat().st_size > 0:
         args["storage_state"] = str(auth_state)
 
     return args
@@ -405,13 +406,49 @@ def find_transactions_page(page: Page) -> FindTransactionsPage:
 
 # Session Management
 @pytest.fixture(scope="session")
-def auth_state(browser: Browser, config: Dict[str, Any], base_url: str) -> Path:
+def worker_id(request: pytest.FixtureRequest) -> str:
+    """Get the worker ID for parallel test execution.
+
+    Returns 'master' for non-parallel execution, or 'gw0', 'gw1', etc. for parallel workers.
+
+    Args:
+        request: Pytest fixture request
+
+    Returns:
+        Worker identifier string
+    """
+    if hasattr(request.config, "workerinput"):
+        # Running with pytest-xdist
+        return str(request.config.workerinput["workerid"])
+    # Running without pytest-xdist (single process)
+    return "master"
+
+
+@pytest.fixture(scope="session")
+def auth_state(browser: Browser, config: Dict[str, Any], base_url: str, worker_id: str) -> Path:
+    # pylint: disable=too-complex
     """Perform login once at the start of the session and return the state file path.
+
+    Creates worker-specific state files to avoid session sharing race conditions
+    when tests run in parallel.
+
+    Args:
+        browser: Playwright browser instance
+        config: Test configuration dictionary
+        base_url: Base URL for the application
+        worker_id: pytest-xdist worker identifier (e.g., 'gw0', 'gw1', or 'master')
 
     Returns:
         Path to the state file. The file will only exist if login was successful.
     """
-    state_file = Path("test-results/state.json")
+    # Create worker-specific state file to avoid session sharing
+    if worker_id == "master":
+        # Non-parallel execution
+        state_file = Path("test-results/state.json")
+    else:
+        # Parallel execution - each worker gets its own state file
+        state_file = Path(f"test-results/state_{worker_id}.json")
+
     state_file.parent.mkdir(exist_ok=True)
 
     # Remove any existing state file to start fresh
@@ -431,13 +468,41 @@ def auth_state(browser: Browser, config: Dict[str, Any], base_url: str) -> Path:
         page.click("input[value='Log In']")
 
         # Wait a moment for the page to respond
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(2000)
 
-        # Don't check for internal error here - let individual tests handle it
-        # This allows non-login tests to still run even if auth_state creation fails
+        # Check for internal server error
+        try:
+            error_header = page.locator("h1.title", has_text="Error!")
+            error_p = page.locator("p.error")
 
-        # Wait for login to complete with a longer timeout
-        expect(page.locator("#leftPanel p.smallText")).to_be_visible(timeout=20000)
+            if error_header.is_visible(timeout=1000) or error_p.is_visible(timeout=1000):
+                logger.error("Internal server error detected during auth_state creation")
+                raise RuntimeError("ParaBank server unavailable - internal error during login")
+        except Exception:  # nosec B110
+            pass  # No error detected, continue
+
+        # Verify we navigated to the accounts overview page (not stuck on login)
+        try:
+            page.wait_for_url("**/overview.htm", timeout=15000)
+            logger.info("Successfully navigated to accounts overview page")
+        except Exception as e:
+            current_url = page.url
+            logger.error(f"Failed to navigate to overview page. Current URL: {current_url}")
+            raise RuntimeError(
+                f"Login failed - did not reach overview page. URL: {current_url}"
+            ) from e
+
+        # Verify we're actually logged in by checking for Account Services menu
+        try:
+            # This element is unique to logged-in state
+            account_services = page.locator("#leftPanel h2", has_text="Account Services")
+            expect(account_services).to_be_visible(timeout=10000)
+            logger.info("Verified Account Services menu is visible - login successful")
+        except Exception as e:
+            logger.error("Account Services menu not found - login may have failed")
+            raise RuntimeError(
+                "Login verification failed - Account Services menu not visible"
+            ) from e
 
         context.storage_state(path=str(state_file))
         logger.info(f"Successfully created auth state at: {state_file}")
@@ -452,15 +517,45 @@ def auth_state(browser: Browser, config: Dict[str, Any], base_url: str) -> Path:
 
 
 @pytest.fixture
-def user_login(page: Page, auth_state: Path, base_url: str) -> None:
-    """Apply the pre-authenticated state to the current page. This is extremely fast."""
-    # The browser context is already created by playwright fixture.
-    # We navigate directly to the logged-in area.
-    page.goto(f"{base_url}/overview.htm")
+def user_login(page: Page, auth_state: Path, base_url: str, config: Dict[str, Any]) -> None:
+    """Apply the pre-authenticated state to the current page with robust fallback.
 
-    # If for some reason we aren't logged in, redirect to login (safeguard)
-    if "Accounts Overview" not in page.title():
-        page.goto(base_url)
+    If the session state fails to apply, it performs a manual login.
+    """
+
+    def _is_logged_in() -> bool:
+        # Check for logout link or overview header as proof of active session
+        return (
+            page.get_by_role("link", name="Log Out").is_visible(timeout=2000)
+            or "Accounts Overview" in page.title()
+        )
+
+    # 1. Attempt to use pre-authenticated state by navigating to a protected page
+    page.goto(f"{base_url}/overview.htm", timeout=30000)
+
+    if _is_logged_in():
+        logger.info("Session state applied successfully.")
+        return
+
+    # 2. Fallback: Perform manual login if state was missing or failed
+    logger.warning("Session state failed or was invalid. Performing manual login fallback...")
+    page.goto(base_url)
+    test_user = config["test_user"]
+    page.fill("input[name='username']", test_user["username"])
+    page.fill("input[name='password']", test_user["password"])
+    page.click("input[value='Log In']")
+
+    # Verify success of fallback login
+    try:
+        page.wait_for_url("**/overview.htm", timeout=15000)
+        logger.info("Manual login fallback successful.")
+    except Exception as e:
+        logger.error(f"Manual login fallback failed: {e}")
+        # Final attempt to check page content
+        if not _is_logged_in():
+            raise RuntimeError(
+                "Failed to achieve authenticated state even after manual fallback."
+            ) from e
 
 
 # Test Hooks
@@ -483,9 +578,14 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]) -> Generator[Any
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_protocol(item: Item, nextitem: Optional[Item]) -> Generator[None, None, None]:
-    """Track test metrics for each test using a context manager."""
     test_name = item.nodeid.split("::")[-1]
-    metrics = ExecutionMetrics(test_name)
+
+    # Get worker ID to avoid metrics collision in Grafana
+    worker_id = "master"
+    if hasattr(item.config, "workerinput"):
+        worker_id = item.config.workerinput["workerid"]
+
+    metrics = ExecutionMetrics(test_name, grouping_key={"worker": worker_id})
     with metrics:
         yield
         metrics.status = getattr(item, "status", "passed")
