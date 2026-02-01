@@ -12,7 +12,14 @@ import types
 from typing import Optional, Type
 
 import psutil
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, push_to_gateway
+from prometheus_client import (
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    delete_from_gateway,
+    push_to_gateway,
+)
 
 # Create a registry
 registry = CollectorRegistry()
@@ -28,6 +35,11 @@ TEST_FAILURES = Counter(
 TEST_SKIPPED = Counter(
     "test_skipped_total",
     "Total number of skipped tests",
+    registry=registry,
+)
+TEST_RERUNS = Counter(
+    "test_reruns_total",
+    "Total number of test reruns (flakes)",
     registry=registry,
 )
 TEST_DURATION = Histogram(
@@ -66,6 +78,19 @@ def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict]
         )
     except Exception as e:
         print(f"Error pushing metrics: {e}")
+
+
+def cleanup_metrics(job_name: str = "para-bank-tests") -> None:
+    """Cleanup old metrics from the Pushgateway.
+
+    Since we don't know all grouping keys, we try to delete the most common ones.
+    """
+    common_workers = ["master"] + [f"gw{i}" for i in range(16)]
+    for worker in common_workers:
+        try:
+            delete_from_gateway("localhost:9091", job=job_name, grouping_key={"worker": worker})
+        except Exception:  # nosec B110
+            pass
 
 
 # Test execution metrics
@@ -108,6 +133,8 @@ class ExecutionMetrics:
                 TEST_PASSES.inc()
             elif self.status == "skipped":
                 TEST_SKIPPED.inc()
+            elif self.status == "rerun":
+                TEST_RERUNS.inc()
             else:
                 TEST_FAILURES.inc()
         elif exc_type is None:

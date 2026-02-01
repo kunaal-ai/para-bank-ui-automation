@@ -111,33 +111,3 @@ class TestForgotLogin:
             # Page might just stay on lookup page without clear error
             # This is also acceptable behavior
             expect(page).to_have_url(f"{page.url}")
-
-    @pytest.mark.flaky
-    @pytest.mark.skip(reason="Requires valid test customer data in database")
-    def test_forgot_login_with_valid_customer(
-        self, forgot_login_page: ForgotLoginPage, config: dict
-    ) -> None:
-        """Verify successful customer lookup with valid data.
-
-        This test is skipped by default as it requires a pre-existing customer
-        with known credentials in the ParaBank database.
-        """
-        # This would require actual test customer data
-        # Using the test user from config (assuming they exist)
-        test_user = config.get("test_user", {})
-
-        forgot_login_page.lookup_customer(
-            first_name=test_user.get("first_name", "John"),
-            last_name=test_user.get("last_name", "Smith"),
-            address=test_user.get("address", "123 Main St"),
-            city=test_user.get("city", "Denver"),
-            state=test_user.get("state", "CO"),
-            zip_code=test_user.get("zip_code", "80012"),
-            ssn=test_user.get("ssn", "123-45-6789"),
-        )
-
-        # Should show success message
-        expect(forgot_login_page.success_message).to_be_visible()
-        expect(forgot_login_page.success_message).to_contain_text(
-            "Your login information was located successfully"
-        )

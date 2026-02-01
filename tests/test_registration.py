@@ -6,7 +6,7 @@ from tests.pages.home_login_page import HomePage
 from tests.pages.register_page import RegisterPage
 
 
-def test_register_new_user(page: Page, base_url: str) -> None:
+def test_register_new_user(page: Page, base_url: str, user_factory) -> None:
     """Test registering a new user successfully."""
     home_page = HomePage(page)
     home_page.load(base_url)
@@ -16,24 +16,11 @@ def test_register_new_user(page: Page, base_url: str) -> None:
 
     register_page = RegisterPage(page)
 
-    # Generate unique username using UUID
-    username = f"user_{uuid.uuid4().hex[:12]}"
+    # Generate dynamic user data
+    user = user_factory.create_user()
 
-    user_data = {
-        "first_name": "Test",
-        "last_name": "User",
-        "address": "123 Main St",
-        "city": "Beverly Hills",
-        "state": "CA",
-        "zip_code": "90210",
-        "phone": "555-0199",
-        "ssn": "000-00-0000",
-        "username": username,
-        "password": "password123",
-    }
-
-    register_page.register(user_data)
-    register_page.verify_registration_success(username, user_data["password"])
+    register_page.register(user.to_dict())
+    register_page.verify_registration_success(user.username, user.password)
 
 
 def test_registration_validation_errors(page: Page, base_url: str) -> None:
@@ -55,29 +42,25 @@ def test_registration_validation_errors(page: Page, base_url: str) -> None:
     expect(page.locator("span[id='customer\\.username\\.errors']")).to_be_visible()
 
 
-def test_registration_duplicate_username(page: Page, base_url: str) -> None:
+def test_registration_duplicate_username(page: Page, base_url: str, user_factory) -> None:
     """Test registration with an already existing username."""
     home_page = HomePage(page)
     home_page.load(base_url)
     page.get_by_role("link", name="Register").click()
     register_page = RegisterPage(page)
 
-    # First registration with unique username
-    username = f"dup_{uuid.uuid4().hex[:12]}"
-    user_data = {
-        "first_name": "Dup",
-        "last_name": "User",
-        "username": username,
-        "password": "password123",
-    }
+    # First registration with dynamic user
+    user = user_factory.create_user(username_prefix="dup")
+    user_data = user.to_dict()
+
     register_page.register(user_data)
-    register_page.verify_registration_success(username, user_data["password"])
+    register_page.verify_registration_success(user.username, user.password)
 
     # Logout to try registering again with same username
     page.get_by_role("link", name="Log Out").click()
     page.get_by_role("link", name="Register").click()
 
-    # Second registration with same username
+    # Second registration with same username data
     register_page.register(user_data)
     expect(page.locator("span[id='customer\\.username\\.errors']")).to_have_text(
         "This username already exists."

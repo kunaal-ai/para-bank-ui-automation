@@ -3,7 +3,6 @@ import logging
 import time
 from typing import Any, Callable, Optional
 
-import pytest
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import Locator, Page
 
@@ -46,7 +45,13 @@ def handle_internal_error(page: Page, requires_login: bool = True) -> None:
 
     # Only handle the error if it was detected and test requires login
     if error_detected and requires_login:
-        pytest.xfail(f"ParaBank server unavailable: {error_message}")
+        logger = logging.getLogger("parabank")
+        logger.warning(f"Internal Error intercepted: {error_message}")
+        raise ParaBankInternalError(f"ParaBank server unavailable: {error_message}")
+
+
+class ParaBankInternalError(Exception):
+    """Raised when ParaBank returns a known internal error page."""
 
 
 # Backward compatibility - keep old function name but redirect to new one

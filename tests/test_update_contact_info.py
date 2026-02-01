@@ -17,14 +17,15 @@ def test_update_zip_code_successful(
     page: Page,
     update_contact_info_page: UpdateContactInfoPage,
     payment_services_tab: PaymentServicesTab,
+    user_factory,
 ) -> None:
     """Verify that the zip code can be updated successfully."""
     # Navigate to Update Contact Info
     payment_services_tab.navigate_to("update_contact")
 
-    # Update Zip Code
-    new_zip = "54321"
-    update_contact_info_page.update_zip_code(new_zip)
+    # Update Zip Code using dynamic data
+    new_user = user_factory.create_user()
+    update_contact_info_page.update_zip_code(new_user.zip_code)
 
     # Wait for page navigation or success indicator
     page.wait_for_timeout(1000)  # Allow JS hydration
@@ -63,17 +64,21 @@ def test_update_full_profile(
     update_contact_info_page: UpdateContactInfoPage,
     payment_services_tab: PaymentServicesTab,
     page: Page,
+    user_factory,
 ) -> None:
     """Verify updating all profile fields."""
     payment_services_tab.navigate_to("update_contact")
 
-    update_contact_info_page.first_name_input.fill("UpdatedName")
-    update_contact_info_page.last_name_input.fill("UpdatedLastName")
-    update_contact_info_page.address_input.fill("New Address")
-    update_contact_info_page.city_input.fill("New City")
-    update_contact_info_page.state_input.fill("NY")
-    update_contact_info_page.zip_code_input.fill("12345")
-    update_contact_info_page.phone_input.fill("123-456-7890")
+    # Generate dynamic user data for update
+    updated_user = user_factory.create_user()
+
+    update_contact_info_page.first_name_input.fill(updated_user.first_name)
+    update_contact_info_page.last_name_input.fill(updated_user.last_name)
+    update_contact_info_page.address_input.fill(updated_user.address)
+    update_contact_info_page.city_input.fill(updated_user.city)
+    update_contact_info_page.state_input.fill(updated_user.state)
+    update_contact_info_page.zip_code_input.fill(updated_user.zip_code)
+    update_contact_info_page.phone_input.fill(updated_user.phone)
 
     update_contact_info_page.update_button.click()
 
