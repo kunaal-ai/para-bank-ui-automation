@@ -83,9 +83,17 @@ def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict]
 def cleanup_metrics(job_name: str = "para-bank-tests") -> None:
     """Cleanup old metrics from the Pushgateway.
 
-    Since we don't know all grouping keys, we try to delete the most common ones.
+    This attempts to delete all potential grouping keys used in this project
+    to ensure the next run starts with a clean slate.
     """
-    common_workers = ["master"] + [f"gw{i}" for i in range(16)]
+    # 1. Delete metrics with no grouping keys (legacy or default pushes)
+    try:
+        delete_from_gateway("localhost:9091", job=job_name, grouping_key=None)
+    except Exception:  # nosec B110
+        pass
+
+    # 2. Delete metrics with worker labels (current strategy)
+    common_workers = ["master"] + [f"gw{i}" for i in range(32)]
     for worker in common_workers:
         try:
             delete_from_gateway("localhost:9091", job=job_name, grouping_key={"worker": worker})

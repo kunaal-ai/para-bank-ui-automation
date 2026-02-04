@@ -34,7 +34,7 @@ class HomePage:
             base_url = os.environ.get("BASE_URL", "https://parabank.parasoft.com/parabank/")
         self.page.goto(base_url)
 
-    def save_storage_state(self, path: str = "state.json") -> dict[str, Any]:
+    def save_storage_state(self, path: str = "state.json") -> Any:
         """Save the browser's storage state to a file.
 
         Args:
@@ -43,7 +43,7 @@ class HomePage:
         Returns:
             Storage state dictionary
         """
-        storage: dict[str, Any] = self.page.context.storage_state(path=path)
+        storage: Any = self.page.context.storage_state(path=path)
         return storage
 
     def restore_storage_state(self, path: str = "state.json") -> bool:

@@ -1,4 +1,5 @@
 """Register Page Object."""
+
 import logging
 
 from playwright.sync_api import Page, expect
@@ -39,9 +40,9 @@ class RegisterPage:
         self.zip_code_input.fill(user_data.get("zip_code", "12345"))
         self.phone_input.fill(user_data.get("phone", "1234567890"))
         self.ssn_input.fill(user_data.get("ssn", "123-456-789"))
-        self.username_input.fill(user_data.get("username"))
-        self.password_input.fill(user_data.get("password"))
-        self.confirm_password_input.fill(user_data.get("password"))
+        self.username_input.fill(str(user_data.get("username")))
+        self.password_input.fill(str(user_data.get("password")))
+        self.confirm_password_input.fill(str(user_data.get("password")))
         self.register_button.wait_for(state="visible", timeout=10000)
         safe_click(self.register_button)
         # ParaBank registration can be very slow, wait for network
@@ -58,16 +59,16 @@ class RegisterPage:
 
         try:
             # Attempt to find the success message
-            expect(self.success_message).to_contain_text(f"Welcome {username}", timeout=10000)
+            expect(self.success_message).to_contain_text(f"Welcome {username}", timeout=30000)
             expect(self.page.locator("#rightPanel p")).to_contain_text(
-                "Your account was created successfully. You are now logged in.", timeout=5000
+                "Your account was created successfully. You are now logged in.", timeout=10000
             )
             logger.info("Registration successful (Success message detected).")
         except AssertionError as e:
             # If success message is missing, check if it's the known "already exists" bug
             error_locator = self.page.locator("span[id='customer\\.username\\.errors']")
             if (
-                error_locator.is_visible(timeout=2000)
+                error_locator.is_visible(timeout=5000)
                 and "already exists" in error_locator.inner_text().lower()
             ):
                 logger.warning(
@@ -84,15 +85,26 @@ class RegisterPage:
                 # Use assert_success=False to handle the logic manually
                 home_page.user_log_in(username, password, assert_success=False)
 
-                # If we are now on the overview page, it means registration actually worked
+                # Wait for potential navigation
                 import re  # pylint: disable=import-outside-toplevel
 
-                if re.search(r".*/overview\.htm$", self.page.url):
+                try:
+                    self.page.wait_for_url(re.compile(r".*/overview\.htm$"), timeout=10000)
                     logger.info(
                         "Registration verified via successful login (ParaBank UI bug bypassed)."
                     )
                     return
+                except Exception:
+                    logger.warning("Fallback login mechanism failed to navigate to overview page.")
 
             # If login failed or it wasn't the expected error, raise the original exception
             logger.error(f"Registration failed: {str(e)}")
+            logger.error(f"Current Page Title: {self.page.title()}")
+            # Log any visible errors on the page
+            try:
+                errors = self.page.locator(".error").all_inner_texts()
+                if errors:
+                    logger.error(f"Visible errors on page: {errors}")
+            except Exception:
+                pass
             raise e
