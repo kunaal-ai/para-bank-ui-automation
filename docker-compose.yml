@@ -20,6 +20,8 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - DISPLAY=:99
       - PLAYWRIGHT_HEADLESS=true
+      - PUSHGATEWAY_URL=pushgateway:9091
+      - HEALIX_PUSHGATEWAY_URL=pushgateway:9091
     ipc: host
     shm_size: 2g
     privileged: true

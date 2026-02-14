@@ -1,5 +1,6 @@
 """Test configuration and fixtures for ParaBank UI automation."""
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional
@@ -10,10 +11,21 @@ from _pytest.config.argparsing import Parser
 from _pytest.fixtures import FixtureRequest
 from _pytest.nodes import Item
 from _pytest.runner import CallInfo
+from dotenv import load_dotenv  # type: ignore
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Ensure Healix can push metrics to Pushgateway when running locally (docker-compose sets this in containers)
+if not os.environ.get("HEALIX_PUSHGATEWAY_URL") and not os.environ.get("PUSHGATEWAY_URL"):
+    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", "http://localhost:9091")
+elif os.environ.get("PUSHGATEWAY_URL") and not os.environ.get("HEALIX_PUSHGATEWAY_URL"):
+    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", os.environ["PUSHGATEWAY_URL"])
+
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from config import Config
-from src.utils.metrics_pusher import ExecutionMetrics, cleanup_metrics
+from src.utils.metrics_pusher import ExecutionMetrics, cleanup_healix_metrics, cleanup_metrics
 from src.utils.stability import ParaBankInternalError
 from tests.data.user_factory import UserFactory
 from tests.pages.account_overview_page import AccountOverviewPage
@@ -77,6 +89,11 @@ def pytest_configure(config: PytestConfig) -> None:
     Args:
         config: Pytest config object
     """
+    # Patch expect BEFORE any test files are imported
+    from healix import _patch_expect  # type: ignore
+
+    _patch_expect()
+
     logger = logging.getLogger("parabank")
     logger.info("=" * 80)
     logger.info("Starting test session")
@@ -86,6 +103,7 @@ def pytest_configure(config: PytestConfig) -> None:
     if not hasattr(config, "workerinput"):
         try:
             cleanup_metrics()
+            cleanup_healix_metrics()
             logger.info("Old metrics cleaned up from Pushgateway")
         except Exception as e:
             logger.warning(f"Could not cleanup old metrics: {e}")
@@ -249,6 +267,7 @@ def page(
 ) -> Generator[Page, None, None]:
     """Create a new page with extended timeouts for slow server responses."""
     page = context.new_page()
+
     # Increase timeouts to handle ParaBank's slow database operations
     page.set_default_navigation_timeout(90000)  # 90s for page loads
     page.set_default_timeout(60000)  # 60s for element interactions
@@ -262,7 +281,42 @@ def page(
         test_name = request.node.name.replace("[", "_").replace("]", "_")
         screenshot_path = screenshot_dir / f"{test_name}.png"
         page.screenshot(path=str(screenshot_path))
-        print(f"Screenshot saved to: {screenshot_path}")
+        logger.info(f"Screenshot saved to: {screenshot_path}")
+
+    page.close()
+
+
+@pytest.fixture
+def hx_page(
+    context: BrowserContext, request: FixtureRequest, config: Dict[str, Any]
+) -> Generator[Page, None, None]:
+    """Auto-healing page fixture - use this instead of 'page' for tests that need self-healing."""
+    import healix
+
+    print(f"\n[Healix] [DEBUG] Loaded from: {healix.__file__}")
+    from healix import Healix
+
+    page = context.new_page()
+
+    # Apply Healix patching for auto-healing
+    page = Healix.patch(page)
+
+    # Increase timeouts to handle ParaBank's slow database operations
+    page.set_default_navigation_timeout(90000)  # 90s for page loads
+    page.set_default_timeout(60000)  # 60s for element interactions
+
+    yield page
+
+    # Take screenshot on test failure
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
+        screenshot_dir = config["test_results_dir"] / "screenshots"
+        screenshot_dir.mkdir(exist_ok=True)
+        test_name = request.node.name.replace("[", "_").replace("]", "_")
+        screenshot_path = screenshot_dir / f"{test_name}.png"
+        page.screenshot(path=str(screenshot_path))
+        logger.info(f"Screenshot saved to: {screenshot_path}")
+
+    page.close()
 
 
 # Page Object Factories
@@ -517,6 +571,12 @@ def user_login(page: Page, auth_state: Path, base_url: str, config: Dict[str, An
     # 1. Attempt to use pre-authenticated state by navigating to a protected page
     page.goto(f"{base_url}/overview.htm", timeout=30000)
 
+    # Wait for potential "Client Challenge" or loading screen to vanish
+    try:
+        page.wait_for_selector("title:has-text('Client Challenge')", state="detached", timeout=5000)
+    except Exception:  # nosec B110
+        pass  # If it didn't appear or didn't go away, we'll fail at the login check next
+
     if _is_logged_in():
         logger.info("Session state applied successfully.")
         return
@@ -573,9 +633,8 @@ def _handle_failed_report(item: Item, call: CallInfo[None], result: Any) -> bool
     """Check if a failed test should be promoted to passed due to ParaBank error."""
     # 1. Check for explicit exception
     if call.excinfo and call.excinfo.errisinstance(ParaBankInternalError):
-        result.outcome = "passed"
-        call.excinfo = None
-        return True
+        # Terminate session immediately on known server overload
+        pytest.exit("server limit reached: Internal Error detected")
 
     # 2. Check for implicit error on page
     if "page" in item.funcargs:
@@ -583,9 +642,8 @@ def _handle_failed_report(item: Item, call: CallInfo[None], result: Any) -> bool
             page = item.funcargs["page"]
             content = page.content().lower()
             if "internal error" in content or "error!" in page.title().lower():
-                result.outcome = "passed"
-                call.excinfo = None
-                return True
+                # Terminate session immediately on suspected server overload
+                pytest.exit("server limit reached: Internal Error detected")
         except Exception:  # nosec B110
             pass
     return False

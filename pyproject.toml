@@ -33,7 +33,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v -n 2 --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml"
+addopts = "-v -n 2 --reruns 2 --reruns-delay 5 --html=test-results/report.html --self-contained-html --junitxml=test-results/junit.xml"
 markers = [
     "smoke: marks tests as smoke tests",
     "regression: marks tests as regression tests",

@@ -1,6 +1,6 @@
 import uuid
 
-from faker import Faker
+from faker import Faker  # type: ignore
 
 from tests.data.models import User
 

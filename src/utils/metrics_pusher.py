@@ -61,6 +61,18 @@ TEST_PERFORMANCE = Histogram(
 )
 
 
+def _pushgateway_url() -> str:
+    """Pushgateway URL (host:port) from env, used for push and delete."""
+    import os
+
+    url = (os.environ.get("PUSHGATEWAY_URL") or "localhost:9091").strip()
+    if url.startswith("http://"):
+        url = url[7:]
+    elif url.startswith("https://"):
+        url = url[8:]
+    return url.rstrip("/")
+
+
 # Function to push metrics
 def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict] = None) -> None:
     """Push metrics to the Pushgateway
@@ -71,7 +83,7 @@ def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict]
     """
     try:
         push_to_gateway(
-            "localhost:9091", job=job_name, registry=registry, grouping_key=grouping_key
+            _pushgateway_url(), job=job_name, registry=registry, grouping_key=grouping_key
         )
         print(
             f"Metrics pushed successfully to Pushgateway (job={job_name}, grouping={grouping_key})"
@@ -83,12 +95,13 @@ def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict]
 def cleanup_metrics(job_name: str = "para-bank-tests") -> None:
     """Cleanup old metrics from the Pushgateway.
 
-    This attempts to delete all potential grouping keys used in this project
-    to ensure the next run starts with a clean slate.
+    Uses PUSHGATEWAY_URL so it works in Docker/CI (e.g. pushgateway:9091).
+    Deletes all potential grouping keys used by this project for the given job.
     """
+    gateway = _pushgateway_url()
     # 1. Delete metrics with no grouping keys (legacy or default pushes)
     try:
-        delete_from_gateway("localhost:9091", job=job_name, grouping_key=None)
+        delete_from_gateway(gateway, job=job_name, grouping_key=None)
     except Exception:  # nosec B110
         pass
 
@@ -96,9 +109,21 @@ def cleanup_metrics(job_name: str = "para-bank-tests") -> None:
     common_workers = ["master"] + [f"gw{i}" for i in range(32)]
     for worker in common_workers:
         try:
-            delete_from_gateway("localhost:9091", job=job_name, grouping_key={"worker": worker})
+            delete_from_gateway(gateway, job=job_name, grouping_key={"worker": worker})
         except Exception:  # nosec B110
             pass
+
+
+def cleanup_healix_metrics() -> None:
+    """Remove Healix metrics from the Pushgateway so the dashboard shows only this run.
+
+    Healix pushes with job='healix' and a fixed grouping (no key), so one delete clears it.
+    Call at session start so Grafana Healix panels match the current run.
+    """
+    try:
+        delete_from_gateway(_pushgateway_url(), job="healix", grouping_key=None)
+    except Exception:  # nosec B110
+        pass
 
 
 # Test execution metrics
