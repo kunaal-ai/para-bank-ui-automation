@@ -62,7 +62,10 @@ class Config:
             url = os.environ.get("AWS_BASE_URL") or os.environ.get("PARABANK_URL")
             if url:
                 return url
-        return self.config.get("base_url", DEFAULT_BASE_URL)
+        config_url = self.config.get("base_url")
+        if isinstance(config_url, str) and config_url:
+            return config_url
+        return DEFAULT_BASE_URL
 
     def __getattr__(self, name: str) -> Any:
         """Allow accessing config values as attributes."""

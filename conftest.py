@@ -13,16 +13,6 @@ from _pytest.fixtures import FixtureRequest
 from _pytest.nodes import Item
 from _pytest.runner import CallInfo
 from dotenv import load_dotenv  # type: ignore
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Ensure Healix can push metrics to Pushgateway when running locally (docker-compose sets this in containers)
-if not os.environ.get("HEALIX_PUSHGATEWAY_URL") and not os.environ.get("PUSHGATEWAY_URL"):
-    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", "http://localhost:9091")
-elif os.environ.get("PUSHGATEWAY_URL") and not os.environ.get("HEALIX_PUSHGATEWAY_URL"):
-    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", os.environ["PUSHGATEWAY_URL"])
-
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from config import Config
@@ -41,6 +31,16 @@ from tests.pages.home_login_page import HomePage
 from tests.pages.open_account_page import OpenAccountPage
 from tests.pages.request_loan_page import RequestLoanPage
 from tests.pages.update_contact_info_page import UpdateContactInfoPage
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Ensure Healix can push metrics to Pushgateway when running
+# locally (docker-compose sets this in containers)
+if not os.environ.get("HEALIX_PUSHGATEWAY_URL") and not os.environ.get("PUSHGATEWAY_URL"):
+    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", "http://localhost:9091")
+elif os.environ.get("PUSHGATEWAY_URL") and not os.environ.get("HEALIX_PUSHGATEWAY_URL"):
+    os.environ.setdefault("HEALIX_PUSHGATEWAY_URL", os.environ["PUSHGATEWAY_URL"])
 
 # Set up logging directory
 log_dir = Path("logs")
@@ -87,6 +87,11 @@ def setup_logging() -> logging.Logger:
 logger = setup_logging()
 
 
+def _healix_enabled() -> bool:
+    """Return True only when Healix is explicitly enabled."""
+    return os.environ.get("ENABLE_HEALIX", "").lower() in ("1", "true", "yes")
+
+
 # Pytest hooks
 def pytest_configure(config: PytestConfig) -> None:
     """Pytest configuration hook.
@@ -94,10 +99,11 @@ def pytest_configure(config: PytestConfig) -> None:
     Args:
         config: Pytest config object
     """
-    # Patch expect BEFORE any test files are imported
-    from healix import _patch_expect  # type: ignore
+    if _healix_enabled():
+        # Patch expect BEFORE any test files are imported
+        from healix import _patch_expect  # type: ignore  # pylint: disable=import-outside-toplevel
 
-    _patch_expect()
+        _patch_expect()
 
     logger = logging.getLogger("parabank")
     logger.info("=" * 80)
@@ -108,7 +114,8 @@ def pytest_configure(config: PytestConfig) -> None:
     if not hasattr(config, "workerinput"):
         try:
             cleanup_metrics()
-            cleanup_healix_metrics()
+            if _healix_enabled():
+                cleanup_healix_metrics()
             logger.info("Old metrics cleaned up from Pushgateway")
         except Exception as e:
             logger.warning(f"Could not cleanup old metrics: {e}")
@@ -305,10 +312,10 @@ def hx_page(
     base_url: str,
 ) -> Generator[Page, None, None]:
     """Auto-healing page fixture - use this instead of 'page' for tests that need self-healing."""
-    import healix
+    import healix  # pylint: disable=import-outside-toplevel
 
     print(f"\n[Healix] [DEBUG] Loaded from: {healix.__file__}")
-    from healix import Healix
+    from healix import Healix  # pylint: disable=import-outside-toplevel
 
     page = context.new_page()
 

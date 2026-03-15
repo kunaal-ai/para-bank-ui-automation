@@ -4,7 +4,7 @@ import time
 from typing import Any, Callable, Optional
 
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, Response
 
 
 def handle_internal_error(page: Page, requires_login: bool = True) -> None:
@@ -99,7 +99,6 @@ def get_circuit_breaker() -> CircuitBreaker:
 
 def attach_circuit_breaker(page: Page, base_url: str) -> None:
     """Attach response listener to page for circuit breaker (500/429)."""
-    from playwright.sync_api import Response
 
     def _on_response(response: Response) -> None:
         try:

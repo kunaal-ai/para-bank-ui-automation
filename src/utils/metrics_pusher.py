@@ -7,6 +7,7 @@ scraped by Prometheus. This approach ensures metrics are available even after
 tests complete.
 """
 
+import os
 import time
 import types
 from typing import Optional, Type
@@ -63,8 +64,6 @@ TEST_PERFORMANCE = Histogram(
 
 def _pushgateway_url() -> str:
     """Pushgateway URL (host:port) from env, used for push and delete."""
-    import os
-
     url = (os.environ.get("PUSHGATEWAY_URL") or "localhost:9091").strip()
     if url.startswith("http://"):
         url = url[7:]
