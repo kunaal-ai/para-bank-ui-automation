@@ -54,6 +54,69 @@ class ParaBankInternalError(Exception):
     """Raised when ParaBank returns a known internal error page."""
 
 
+class EnvironmentBlockedException(Exception):
+    """Raised when the Circuit Breaker trips after 3 consecutive 500/429 responses."""
+
+
+class CircuitBreaker:
+    """Tracks consecutive 500/429 HTTP responses and aborts run after threshold."""
+
+    THRESHOLD = 3
+
+    def __init__(self) -> None:
+        self._count = 0
+
+    def record(self, url: str, status: int, base_url_prefix: str = "") -> None:
+        """Record a response. Increment on 500/429, reset on 2xx. Raise when threshold hit."""
+        # Only count responses to our app (filter by base_url); skip if no filter
+        if base_url_prefix and not url.startswith(base_url_prefix):
+            return
+
+        if status in (500, 429):
+            self._count += 1
+            if self._count >= self.THRESHOLD:
+                msg = (
+                    f"Circuit breaker tripped after {self.THRESHOLD} consecutive "
+                    f"500/429 responses. Aborting test run."
+                )
+                raise EnvironmentBlockedException(msg)
+        elif 200 <= status < 300:
+            self._count = 0
+
+    def reset(self) -> None:
+        """Reset the failure counter (e.g., at session start)."""
+        self._count = 0
+
+
+# Singleton for use across the test session
+_circuit_breaker = CircuitBreaker()
+
+
+def get_circuit_breaker() -> CircuitBreaker:
+    """Return the session-wide circuit breaker instance."""
+    return _circuit_breaker
+
+
+def attach_circuit_breaker(page: Page, base_url: str) -> None:
+    """Attach response listener to page for circuit breaker (500/429)."""
+    from playwright.sync_api import Response
+
+    def _on_response(response: Response) -> None:
+        try:
+            status = response.status
+            url = response.url
+            base_prefix = base_url.rstrip("/") if base_url else ""
+            if base_prefix and not url.startswith(base_prefix):
+                return
+            _circuit_breaker.record(url, status, base_prefix)
+        except EnvironmentBlockedException:
+            raise
+        except Exception:  # nosec B110
+            pass
+
+    page.on("response", _on_response)
+
+
 # Backward compatibility - keep old function name but redirect to new one
 def skip_if_internal_error(page: Page) -> None:
     """Deprecated: Use handle_internal_error instead."""

@@ -1,0 +1,175 @@
+Milestone 1: Core Infrastructure & Networking
+
+Goal
+
+Deploy the foundational Docker stack. This ensures the Application Under Test (ParaBank) and the monitoring tools (Prometheus, Grafana) can communicate privately via a dedicated network. This milestone focuses solely on the server-side infrastructure, excluding the local test runner.
+
+Free Tier Compliance (Stay $0 Billed)
+
+This setup is designed to stay within AWS Free Tier:
+
+  - Use exactly ONE t3.micro instance (750 hrs/month free for 12 months; one instance 24/7 ≈ 744 hrs).
+  - Use the default 8 GB root EBS volume (within 30 GB free).
+  - Do NOT add: second EC2, extra EBS volumes, Load Balancer, NAT Gateway, RDS, or Elastic IP left detached.
+  - Data transfer: 100 GB out/month free; typical test traffic is well under this.
+  - Optional: Stop the instance when not testing (Instance > Stop) to conserve free hours for later months.
+
+Step-by-Step Instructions
+
+SSH into your EC2: Connect to your Ubuntu instance.
+
+Install & Verify Docker: Follow the official Ubuntu install docs (https://docs.docker.com/engine/install/ubuntu/).
+
+Verify: Run docker --version and docker compose version to ensure the environment is ready.
+
+AWS Security Group Check: Ensure your EC2 Security Group allows Inbound traffic on:
+
+8080 (ParaBank)
+
+9090 (Prometheus)
+
+3000 (Grafana)
+
+22 (SSH)
+
+Create Project Directory: mkdir parabank-stack && cd parabank-stack.
+
+Deploy: Use the AI Prompt below to generate your configuration, then run docker-compose up -d.
+
+Resource Monitor: Run docker stats to ensure memory usage stays within the 1GB limit.
+
+AI Prompt: Milestone 1 Technical Breakdown
+
+Context: I am building a portfolio project on an AWS EC2 t3.micro (1 vCPU, 1 GB RAM).
+Task: Act as a Senior DevOps Engineer. Write a docker-compose.yml file using version '3.8'.
+
+Technical Requirements:
+
+Network: Create a top-level bridge network named test-backbone.
+
+ParaBank Service:
+
+Image: parasoft/parabank:latest.
+
+Port Mapping: Map host 8080 to container 8080.
+
+Healthcheck: Use wget --quiet --tries=1 --spider http://localhost:8080/parabank/ to ensure the web context is loaded.
+
+Healthcheck Config: interval: 15s, timeout: 10s, retries: 3, start_period: 60s.
+
+Resource Limits: Limit memory to 512mb to prevent OOM on t3.micro.
+
+Restart: unless-stopped.
+
+Prometheus Service:
+
+Image: prom/prometheus:latest.
+
+Dependency: Use depends_on targeting ParaBank (startup order only).
+
+Port Mapping: Map host 9090 to container 9090.
+
+Resource Limits: Limit memory to 128mb.
+
+Grafana Service:
+
+Image: grafana/grafana:latest.
+
+Dependency: Use depends_on targeting Prometheus.
+
+Port Mapping: Map host 3000 to container 3000.
+
+Resource Limits: Limit memory to 256mb.
+
+General: All services must be assigned to the test-backbone network. Ensure all services have restart: unless-stopped for resilience. Service names must be: parabank, prometheus, grafana (lowercase) for DNS resolution on test-backbone.
+
+
+Milestone 2: Telemetry & Monitoring Setup
+
+Goal
+
+Configure Prometheus to scrape performance data from ParaBank and automate the connection between Prometheus and Grafana. This ensures your dashboard is ready to visualize test results as soon as they are generated.
+
+Free Tier Compliance
+
+No new AWS resources. This milestone only adds configuration files and volume mounts. You remain within Free Tier.
+
+Prerequisites
+
+Complete Milestone 1. The parabank-stack must be running with all three containers on the test-backbone network.
+
+Step-by-Step Instructions
+
+Create Config Directory: On the EC2 instance, from parabank-stack run mkdir -p config/prometheus config/grafana/provisioning/datasources.
+
+Prometheus Config: Create config/prometheus/prometheus.yml using the AI prompt below.
+
+Update docker-compose: Add the volumes section from the AI prompt to the Prometheus and Grafana services in your docker-compose.yml.
+
+Grafana Datasource: Create the YAML file in config/grafana/provisioning/datasources/ using the AI prompt below.
+
+Redeploy: Run docker compose up -d to apply the new volume mounts. Existing containers will pick up the config.
+
+Verify: Access http://<EC2_IP>:9090/targets to see scrape targets and http://<EC2_IP>:3000 for the Grafana dashboard.
+
+Validate Targets: Run curl -s "http://localhost:9090/api/v1/targets" | grep -o '"health":"[^"]*"' to confirm targets report "health":"up".
+
+AI Prompt: Milestone 2 Technical Breakdown
+
+Context: I am building a portfolio project on an AWS EC2 t3.micro. Milestone 1 docker-compose is already deployed with services parabank, prometheus, grafana on network test-backbone.
+Task: Act as a Senior DevOps Engineer. Provide the configuration for Milestone 2.
+
+Technical Requirements:
+
+Prometheus Config: Write a prometheus.yml file. Define a scrape_job named parabank-app targeting http://parabank:8080 (metrics path /parabank/metrics or /metrics if applicable). Set scrape_interval to 5s. Include the default prometheus self-scrape job (localhost:9090).
+
+Docker Update: Show the exact volumes: section to add under the prometheus service to mount ./config/prometheus/prometheus.yml to /etc/prometheus/prometheus.yml. Show the exact volumes: section for the grafana service to mount ./config/grafana/provisioning to /etc/grafana/provisioning.
+
+Grafana Provisioning: Provide a YAML file for /etc/grafana/provisioning/datasources/. It must define a Prometheus data source with name DS_PROMETHEUS, type prometheus, url http://prometheus:9090, and isDefault: true.
+
+Validation: Provide a curl command to check http://localhost:9090/api/v1/targets and confirm the parabank-app target health is "up".
+
+Milestone 3: Automation Framework Integration
+
+Goal
+
+Update your existing Python/pytest/Playwright framework to interact with the AWS stack. This includes adding a Circuit Breaker to handle ParaBank rate limits and environment instability, so tests stop gracefully when the remote app is unhealthy.
+
+Free Tier Compliance
+
+No new AWS resources. Tests run from your local machine (or a test container) and target the existing EC2 instance. You remain within Free Tier.
+
+Prerequisites
+
+Complete Milestones 1 and 2. The AWS stack (ParaBank, Prometheus, Grafana) must be running and reachable from your network.
+
+Step-by-Step Instructions
+
+Set BASE_URL: When running against AWS, set BASE_URL=http://<EC2_IP>:8080/parabank/ (include trailing slash). Use .env or export before running pytest.
+
+Base URL Config: Update your framework to prefer BASE_URL from the environment when set; otherwise use config file or default (e.g., https://parabank.parasoft.com/parabank/).
+
+Circuit Breaker: Add the Circuit Breaker logic to your base test setup (e.g., conftest.py or a shared stability module).
+
+Execution: Run pytest with BASE_URL pointing at your EC2 IP. Verify the suite stops gracefully after 3 consecutive 500/429 responses.
+
+Observability: Add a pytest hook that logs TEST_RESULT for each test in a Prometheus-friendly format.
+
+Verify: Run a full suite against AWS. Confirm Circuit Breaker trips on repeated 500s and that TEST_RESULT lines appear in the output.
+
+AI Prompt: Milestone 3 Technical Breakdown
+
+Context: I am using a Python/pytest/Playwright automation framework for ParaBank. The framework has a conftest.py, a Config class, and a stability module. Tests run locally and target a remote ParaBank instance (e.g., on AWS EC2).
+Task: Write the integration code to handle the AWS environment and rate limits.
+
+Technical Requirements:
+
+Base URL Handler: Update the Config or add a utility to resolve BASE_URL. Priority: (1) environment variable BASE_URL if set; (2) EXECUTION_ENV=aws with AWS_BASE_URL or PARABANK_URL for EC2; (3) config file base_url; (4) default https://parabank.parasoft.com/parabank/. Ensure the URL has a trailing slash where the app expects it.
+
+Circuit Breaker Implementation:
+  - Create a module-level or singleton counter that tracks consecutive 500 (Internal Server Error) and 429 (Too Many Requests) responses.
+  - When the counter reaches 3, raise a custom EnvironmentBlockedException (or reuse ParaBankInternalError) to abort the run.
+  - Integrate detection into a pytest fixture or hook that runs before/before each test (e.g., conftest.py). Use Playwright's response listeners or a wrapper to capture HTTP status codes.
+  - Reset the counter to 0 on any successful (2xx) response.
+
+Observability Hook: Provide a pytest conftest hook (e.g., pytest_runtest_makereport) that prints one line per test in the format: TEST_RESULT: {"name": "test_id", "status": "passed|failed|skipped", "latency_ms": 123}. Use a JSON-compatible format for log parsing and Prometheus.

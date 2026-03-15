@@ -81,7 +81,6 @@ def test_open_account_type_options(
 ) -> None:
     """Verify that both Checking and Savings account types are available."""
     safe_click(payment_services_tab.open_new_account_link)
-
     options = open_account_page.account_type_select.locator("option").all_inner_texts()
     assert "CHECKING" in [o.upper() for o in options]
     assert any("SAVING" in o.upper() for o in options)

@@ -17,6 +17,14 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
+  # AWS stack (docker-compose.aws.yml): scrapes ParaBank container
+  # Note: ParaBank may not expose /metrics natively; adjust metrics_path if needed
+  - job_name: "parabank-app"
+    static_configs:
+      - targets: ["parabank:8080"]
+    metrics_path: /parabank/metrics
+    scrape_interval: 5s
+
   - job_name: "para-bank-tests"
     static_configs:
       - targets: ["host.docker.internal:8000"]

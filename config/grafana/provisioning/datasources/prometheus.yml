@@ -9,3 +9,13 @@ datasources:
     basicAuth: false
     isDefault: true
     editable: true
+
+  # AWS stack / dashboard variable reference (M2)
+  - name: DS_PROMETHEUS
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    basicAuth: false
+    isDefault: false
+    editable: true

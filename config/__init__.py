@@ -1,9 +1,13 @@
 """Configuration loader for the Para Bank UI Automation project."""
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
 
 import pytest
+
+# Default base URL when nothing is configured (e.g., for AWS runs)
+DEFAULT_BASE_URL = "https://parabank.parasoft.com/parabank"
 
 
 class Config:
@@ -46,8 +50,24 @@ class Config:
             config_data: Dict[str, Any] = json.load(f)
             return config_data
 
+    def _resolve_base_url(self) -> str:
+        """Resolve base_url with env override for AWS deployment.
+
+        Priority: BASE_URL env > EXECUTION_ENV=aws + AWS_BASE_URL/PARABANK_URL > config > default.
+        """
+        url = os.environ.get("BASE_URL")
+        if url:
+            return url
+        if os.environ.get("EXECUTION_ENV", "").lower() == "aws":
+            url = os.environ.get("AWS_BASE_URL") or os.environ.get("PARABANK_URL")
+            if url:
+                return url
+        return self.config.get("base_url", DEFAULT_BASE_URL)
+
     def __getattr__(self, name: str) -> Any:
         """Allow accessing config values as attributes."""
+        if name == "base_url":
+            return self._resolve_base_url()
         if name in self.config:
             return self.config[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")

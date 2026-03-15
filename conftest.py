@@ -1,4 +1,5 @@
 """Test configuration and fixtures for ParaBank UI automation."""
+import json
 import logging
 import os
 import sys
@@ -26,7 +27,11 @@ from playwright.sync_api import Browser, BrowserContext, Page, expect
 
 from config import Config
 from src.utils.metrics_pusher import ExecutionMetrics, cleanup_healix_metrics, cleanup_metrics
-from src.utils.stability import ParaBankInternalError
+from src.utils.stability import (
+    EnvironmentBlockedException,
+    ParaBankInternalError,
+    attach_circuit_breaker,
+)
 from tests.data.user_factory import UserFactory
 from tests.pages.account_overview_page import AccountOverviewPage
 from tests.pages.bill_pay_page import BillPayPage
@@ -263,10 +268,16 @@ def context(
 
 @pytest.fixture
 def page(
-    context: BrowserContext, request: FixtureRequest, config: Dict[str, Any]
+    context: BrowserContext,
+    request: FixtureRequest,
+    config: Dict[str, Any],
+    base_url: str,
 ) -> Generator[Page, None, None]:
     """Create a new page with extended timeouts for slow server responses."""
     page = context.new_page()
+
+    # Circuit breaker for 500/429 (M3) - aborts run after 3 consecutive failures
+    attach_circuit_breaker(page, base_url)
 
     # Increase timeouts to handle ParaBank's slow database operations
     page.set_default_navigation_timeout(90000)  # 90s for page loads
@@ -288,7 +299,10 @@ def page(
 
 @pytest.fixture
 def hx_page(
-    context: BrowserContext, request: FixtureRequest, config: Dict[str, Any]
+    context: BrowserContext,
+    request: FixtureRequest,
+    config: Dict[str, Any],
+    base_url: str,
 ) -> Generator[Page, None, None]:
     """Auto-healing page fixture - use this instead of 'page' for tests that need self-healing."""
     import healix
@@ -297,6 +311,9 @@ def hx_page(
     from healix import Healix
 
     page = context.new_page()
+
+    # Circuit breaker for 500/429 (M3)
+    attach_circuit_breaker(page, base_url)
 
     # Apply Healix patching for auto-healing
     page = Healix.patch(page)
@@ -628,13 +645,30 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]) -> Generator[Any
     pytest.test_failed = result.failed
     pytest.current_test_name = item.nodeid.split("::")[-1]
 
+    # Observability: log TEST_RESULT for Prometheus-friendly parsing (AWS/M3)
+    if call.when == "call" and (
+        os.environ.get("EXECUTION_ENV") == "aws"
+        or os.environ.get("TEST_RESULT_LOGGING", "").lower() in ("1", "true", "yes")
+    ):
+        status = getattr(item, "status", result.outcome)
+        latency_ms = int(getattr(result, "duration", 0) * 1000)
+        payload = {
+            "name": item.nodeid,
+            "status": status,
+            "latency_ms": latency_ms,
+        }
+        print(f"TEST_RESULT: {json.dumps(payload)}", flush=True)
+
 
 def _handle_failed_report(item: Item, call: CallInfo[None], result: Any) -> bool:
     """Check if a failed test should be promoted to passed due to ParaBank error."""
     # 1. Check for explicit exception
-    if call.excinfo and call.excinfo.errisinstance(ParaBankInternalError):
-        # Terminate session immediately on known server overload
-        pytest.exit("server limit reached: Internal Error detected")
+    if call.excinfo:
+        if call.excinfo.errisinstance(EnvironmentBlockedException):
+            pytest.exit("Circuit breaker tripped: 3 consecutive 500/429 responses")
+        if call.excinfo.errisinstance(ParaBankInternalError):
+            # Terminate session immediately on known server overload
+            pytest.exit("server limit reached: Internal Error detected")
 
     # 2. Check for implicit error on page
     if "page" in item.funcargs:
