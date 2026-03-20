@@ -1,10 +1,37 @@
 """Stability utilities for handling ParaBank demo site instability."""
 import logging
 import time
+from collections import deque
 from typing import Any, Callable, Optional
+from urllib.parse import urlparse
 
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import Locator, Page, Response
+
+_RECENT_HTTP_EVENTS: deque[dict[str, Any]] = deque(maxlen=30)
+
+
+def _record_http_event(url: str, status: int) -> None:
+    """Track recent app responses to diagnose unstable endpoints."""
+    parsed = urlparse(url)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    _RECENT_HTTP_EVENTS.append(
+        {
+            "ts": int(time.time()),
+            "status": status,
+            "url": url,
+            "path": path,
+        }
+    )
+
+
+def recent_http_events(limit: int = 8) -> list[dict[str, Any]]:
+    """Return most recent response events for diagnostics."""
+    if limit <= 0:
+        return []
+    return list(_RECENT_HTTP_EVENTS)[-limit:]
 
 
 def handle_internal_error(page: Page, requires_login: bool = True) -> None:
@@ -47,6 +74,11 @@ def handle_internal_error(page: Page, requires_login: bool = True) -> None:
     if error_detected and requires_login:
         logger = logging.getLogger("parabank")
         logger.warning(f"Internal Error intercepted: {error_message}")
+        logger.warning(f"Current page when error detected: {page.url}")
+        recent = recent_http_events(limit=8)
+        if recent:
+            formatted = " | ".join(f"{event['status']} {event['path']}" for event in recent)
+            logger.warning(f"Recent app responses: {formatted}")
         raise ParaBankInternalError(f"ParaBank server unavailable: {error_message}")
 
 
@@ -107,6 +139,7 @@ def attach_circuit_breaker(page: Page, base_url: str) -> None:
             base_prefix = base_url.rstrip("/") if base_url else ""
             if base_prefix and not url.startswith(base_prefix):
                 return
+            _record_http_event(url, status)
             _circuit_breaker.record(url, status, base_prefix)
         except EnvironmentBlockedException:
             raise

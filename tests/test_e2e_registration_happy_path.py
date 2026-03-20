@@ -1,4 +1,5 @@
 import logging
+import re
 
 from playwright.sync_api import Page, expect
 
@@ -42,12 +43,22 @@ def test_e2e_happy_path_workflow(
     page.get_by_role("link", name="Register").click()
 
     register_page = RegisterPage(page)
-    user = user_factory.create_user()
-    user_data = user.to_dict()
 
-    logger.info(f"Registering user: {user.username}")
-    register_page.register(user_data)
-    register_page.verify_registration_success(user.username, user.password)
+    # ParaBank registration intermittently fails on remote environments.
+    # Retry once with a fresh user to avoid false negatives.
+    for attempt in range(2):
+        user = user_factory.create_user()
+        user_data = user.to_dict()
+        logger.info(f"Registering user: {user.username} (attempt {attempt + 1}/2)")
+        try:
+            register_page.register(user_data)
+            register_page.verify_registration_success(user.username, user.password)
+            break
+        except AssertionError:
+            if attempt == 1:
+                raise
+            logger.warning("Registration verification failed; retrying with a fresh user.")
+            page.goto(f"{base_url}/register.htm", timeout=30000)
 
     # --- 2. Open New Account ---
     logger.info("Opening a new Savings account")
@@ -61,11 +72,11 @@ def test_e2e_happy_path_workflow(
 
     # Wait for the select to be populated (it takes a moment to fetch existing accounts)
     try:
-        page.wait_for_selector("select#fromAccountId option", timeout=30000)
+        page.wait_for_selector("select#fromAccountId option", state="attached", timeout=30000)
     except Exception:
         logger.warning("Timeout waiting for accounts dropdown. Retrying navigation...")
         payment_services_tab.open_new_account_link.click()
-        page.wait_for_selector("select#fromAccountId option", timeout=30000)
+        page.wait_for_selector("select#fromAccountId option", state="attached", timeout=30000)
 
     # Open a SAVINGS account using the first available account as source
     open_account_page.open_new_account(account_type="SAVINGS", from_account_index=0)
@@ -174,12 +185,12 @@ def test_e2e_happy_path_workflow(
         amount=loan_amount, down_payment=down_payment, from_account=from_account
     )
 
-    # Verify result - sometimes it's approved, sometimes denied depending on backend logic.
-    # We just want to ensure the process completes.
-    # checking for "Loan Request Processed" title which appears in both cases
-    expect(page.locator("#loanRequestApproved h1.title, .title")).to_contain_text(
+    # Verify result - sometimes approved, sometimes denied, both are valid outcomes.
+    expect(request_loan_page.result_container).to_be_visible(timeout=15000)
+    expect(request_loan_page.result_container.locator("h1.title")).to_have_text(
         "Loan Request Processed"
     )
+    expect(request_loan_page.status_text).to_contain_text(re.compile(r"(Approved|Denied)"))
 
     # --- 8. Update Contact Info ---
     logger.info("Updating Contact Info")

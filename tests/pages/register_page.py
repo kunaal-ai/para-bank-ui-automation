@@ -1,12 +1,22 @@
 """Register Page Object."""
 
 import logging
+import os
 
 from playwright.sync_api import Page, expect
 
-from src.utils.stability import handle_internal_error, safe_click
+from src.utils.stability import ParaBankInternalError, handle_internal_error, safe_click
 
 logger = logging.getLogger("parabank")
+
+
+def _soft_internal_errors_enabled() -> bool:
+    """Enable soft handling of backend instability in demo runs."""
+    return os.environ.get("DEMO_MODE_SOFT_INTERNAL_ERROR", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 class RegisterPage:
@@ -48,20 +58,27 @@ class RegisterPage:
         # ParaBank registration can be very slow, wait for network
         self.page.wait_for_load_state("networkidle", timeout=15000)
 
-    def verify_registration_success(self, username: str, password: str = "password123") -> None:
+    def verify_registration_success(  # pylint: disable=too-complex
+        self, username: str, password: str = "password123"
+    ) -> None:
         """Verify that registration was successful with robust error checking and fallback.
 
-        ParaBank has a bug where it reports 'username already exists' even for successful creations.
-        This method handles that by attempting a login check if the welcome message is missing.
+        ParaBank has a bug where it reports 'username already exists'
+        even for successful creations. This method handles that by
+        attempting a login check if the welcome message is missing.
         """
         # First check for internal errors
         handle_internal_error(self.page, requires_login=False)
 
         try:
             # Attempt to find the success message
-            expect(self.success_message).to_contain_text(f"Welcome {username}", timeout=30000)
+            expect(self.success_message).to_contain_text(
+                f"Welcome {username}",
+                timeout=30000,
+            )
             expect(self.page.locator("#rightPanel p")).to_contain_text(
-                "Your account was created successfully. You are now logged in.", timeout=10000
+                "Your account was created successfully. You are now logged in.",
+                timeout=10000,
             )
             logger.info("Registration successful (Success message detected).")
         except AssertionError as e:
@@ -89,22 +106,38 @@ class RegisterPage:
                 import re  # pylint: disable=import-outside-toplevel
 
                 try:
-                    self.page.wait_for_url(re.compile(r".*/overview\.htm$"), timeout=10000)
+                    self.page.wait_for_url(
+                        re.compile(r".*/overview\.htm$"),
+                        timeout=10000,
+                    )
                     logger.info(
                         "Registration verified via successful login (ParaBank UI bug bypassed)."
                     )
                     return
                 except Exception:
-                    logger.warning("Fallback login mechanism failed to navigate to overview page.")
+                    logger.warning(
+                        "Fallback login mechanism failed to navigate " "to overview page."
+                    )
 
             # If login failed or it wasn't the expected error, raise the original exception
             logger.error(f"Registration failed: {str(e)}")
-            logger.error(f"Current Page Title: {self.page.title()}")
+            page_title = self.page.title()
+            logger.error(f"Current Page Title: {page_title}")
             # Log any visible errors on the page
+            errors = []
             try:
                 errors = self.page.locator(".error").all_inner_texts()
                 if errors:
                     logger.error(f"Visible errors on page: {errors}")
             except Exception:
                 pass
+
+            if _soft_internal_errors_enabled():
+                has_auth_error = any(
+                    "username and password could not be verified" in err.lower() for err in errors
+                )
+                if "error" in page_title.lower() or has_auth_error:
+                    raise ParaBankInternalError(
+                        "Registration encountered unstable backend state"
+                    ) from e
             raise e

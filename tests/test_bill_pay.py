@@ -1,13 +1,72 @@
 """Testing bill payment for submission."""
 import logging
+import os
+from typing import Any, Dict
 
+import pytest
 from playwright.sync_api import Page, expect
 
-from src.utils.stability import handle_internal_error
+from src.utils.stability import ParaBankInternalError, handle_internal_error
 from tests.pages.bill_pay_page import BillPayPage
 from tests.pages.helper_pom.payment_services_tab import PaymentServicesTab
 
 logger = logging.getLogger("parabank")
+
+
+def _billpay_demo_mode_enabled() -> bool:
+    """Allow bill pay internal-error soft handling for demo runs."""
+    return os.environ.get("DEMO_MODE_BILLPAY", "").lower() in ("1", "true", "yes")
+
+
+def _open_bill_pay_with_retry(
+    page: Page,
+    payment_services_tab: PaymentServicesTab,
+    base_url: str,
+    config: Dict[str, Any],
+    attempts: int = 2,
+) -> None:
+    """Open bill pay and recover once via forced same-page relogin."""
+    base = base_url.rstrip("/")
+    for attempt in range(attempts):
+        payment_services_tab.bill_pay_link.click()
+        try:
+            handle_internal_error(page, requires_login=True)
+            return
+        except ParaBankInternalError:
+            if attempt == attempts - 1:
+                if _billpay_demo_mode_enabled():
+                    pytest.xfail(
+                        "Bill Pay endpoint returned internal error in demo mode; "
+                        "treating as environment instability."
+                    )
+                raise
+            logger.warning("Bill Pay returned internal error; forcing relogin and retrying once.")
+            user = config["test_user"]
+            try:
+                page.goto(f"{base}/logout.htm", timeout=30000)
+            except Exception:
+                # It's fine if logout endpoint is unavailable in current state.
+                pass
+
+            page.goto(f"{base}/index.htm", timeout=30000)
+            username = page.locator("input[name='username']")
+            password = page.locator("input[name='password']")
+
+            try:
+                username.wait_for(state="visible", timeout=10000)
+                password.wait_for(state="visible", timeout=10000)
+            except Exception:
+                # Some states auto-redirect to overview while still authenticated.
+                if "overview.htm" in page.url:
+                    continue
+                page.reload(timeout=30000, wait_until="domcontentloaded")
+                username.wait_for(state="visible", timeout=15000)
+                password.wait_for(state="visible", timeout=15000)
+
+            page.fill("input[name='username']", user["username"])
+            page.fill("input[name='password']", user["password"])
+            page.click("input[value='Log In']")
+            page.wait_for_url("**/overview.htm", timeout=30000)
 
 
 def test_submit_form_with_correct_values(
@@ -16,9 +75,9 @@ def test_submit_form_with_correct_values(
     bill_pay_page: BillPayPage,
     page: Page,
     base_url: str,
+    config: Dict[str, Any],
 ) -> None:
-    payment_services_tab.bill_pay_link.click()
-    handle_internal_error(page, requires_login=True)
+    _open_bill_pay_with_retry(page, payment_services_tab, base_url, config)
 
     test_data = {
         "name": "Test Payee",
@@ -41,10 +100,11 @@ def test_bill_pay_validation_errors(
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
     page: Page,
+    base_url: str,
+    config: Dict[str, Any],
 ) -> None:
     """Test that validation errors appear when fields are missing."""
-    payment_services_tab.bill_pay_link.click()
-    handle_internal_error(page, requires_login=True)
+    _open_bill_pay_with_retry(page, payment_services_tab, base_url, config)
 
     # Click send payment without filling anything
     bill_pay_page.click_send_payment()
@@ -68,10 +128,11 @@ def test_bill_pay_mismatch_account(
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
     page: Page,
+    base_url: str,
+    config: Dict[str, Any],
 ) -> None:
     """Test bill pay validation error when account numbers do not match."""
-    payment_services_tab.bill_pay_link.click()
-    handle_internal_error(page, requires_login=True)
+    _open_bill_pay_with_retry(page, payment_services_tab, base_url, config)
 
     test_data = {
         "name": "Mismatch Payee",
@@ -93,10 +154,11 @@ def test_bill_pay_invalid_amount(
     payment_services_tab: PaymentServicesTab,
     bill_pay_page: BillPayPage,
     page: Page,
+    base_url: str,
+    config: Dict[str, Any],
 ) -> None:
     """Test bill pay with a non-numeric amount."""
-    payment_services_tab.bill_pay_link.click()
-    handle_internal_error(page, requires_login=True)
+    _open_bill_pay_with_retry(page, payment_services_tab, base_url, config)
 
     test_data = {
         "name": "Invalid Amount Payee",

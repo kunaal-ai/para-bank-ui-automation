@@ -7,6 +7,7 @@ scraped by Prometheus. This approach ensures metrics are available even after
 tests complete.
 """
 
+import logging
 import os
 import time
 import types
@@ -24,6 +25,7 @@ from prometheus_client import (
 
 # Create a registry
 registry = CollectorRegistry()
+logger = logging.getLogger("parabank")
 
 # Define metrics with the registry
 TEST_RUNS = Counter("test_runs_total", "Total number of test runs", registry=registry)
@@ -84,11 +86,13 @@ def push_metrics(job_name: str = "para-bank-tests", grouping_key: Optional[dict]
         push_to_gateway(
             _pushgateway_url(), job=job_name, registry=registry, grouping_key=grouping_key
         )
-        print(
-            f"Metrics pushed successfully to Pushgateway (job={job_name}, grouping={grouping_key})"
+        logger.debug(
+            "Metrics pushed successfully to Pushgateway (job=%s, grouping=%s)",
+            job_name,
+            grouping_key,
         )
     except Exception as e:
-        print(f"Error pushing metrics: {e}")
+        logger.debug("Pushgateway unavailable; skipping push (job=%s): %s", job_name, e)
 
 
 def cleanup_metrics(job_name: str = "para-bank-tests") -> None:
