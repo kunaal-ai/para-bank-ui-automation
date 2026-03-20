@@ -340,6 +340,24 @@ pytest -o addopts="" -p no:healix tests/ -v -s
 - `DEMO_MODE_*` flags keep long runs actionable by soft-handling known backend
   instability.
 
+### On-Demand Live Review Workflow
+
+For cost control, keep the EC2 instance stopped when not demonstrating.
+
+When a reviewer wants a live walkthrough:
+
+1. Start EC2 instance and note current public IP.
+2. Confirm app endpoint:
+   - `http://<EC2_PUBLIC_IP>:8080/parabank`
+3. Confirm dashboards:
+   - `http://<EC2_PUBLIC_IP>:3000` (Grafana)
+   - `http://<EC2_PUBLIC_IP>:9090` (Prometheus)
+4. Run one smoke suite with the AWS profile command above.
+5. Show execution artifacts from:
+   - `test-results/screenshots/`
+   - `test-results/videos/`
+   - `logs/test_run.log`
+
 ### Run All Tests
 ```bash
 # Run all tests (uses dev environment by default)

@@ -43,6 +43,20 @@ services:
     restart: unless-stopped
     depends_on:
       - parabank
+      - pushgateway
+    networks:
+      - test-backbone
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    restart: unless-stopped
     networks:
       - test-backbone
 

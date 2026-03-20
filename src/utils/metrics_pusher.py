@@ -12,6 +12,7 @@ import os
 import time
 import types
 from typing import Optional, Type
+from urllib.parse import urlparse
 
 import psutil
 from prometheus_client import (
@@ -65,8 +66,23 @@ TEST_PERFORMANCE = Histogram(
 
 
 def _pushgateway_url() -> str:
-    """Pushgateway URL (host:port) from env, used for push and delete."""
-    url = (os.environ.get("PUSHGATEWAY_URL") or "localhost:9091").strip()
+    """Resolve Pushgateway URL (host:port) for local and AWS runs.
+
+    Priority:
+    1) PUSHGATEWAY_URL env override
+    2) AWS mode: infer host from BASE_URL and use :9091
+    3) Local default: localhost:9091
+    """
+    configured = os.environ.get("PUSHGATEWAY_URL", "").strip()
+    if configured:
+        url = configured
+    elif os.environ.get("EXECUTION_ENV", "").lower() == "aws":
+        base_url = os.environ.get("BASE_URL", "").strip()
+        parsed = urlparse(base_url) if base_url else None
+        host = parsed.hostname if parsed else None
+        url = f"{host}:9091" if host else "localhost:9091"
+    else:
+        url = "localhost:9091"
     if url.startswith("http://"):
         url = url[7:]
     elif url.startswith("https://"):

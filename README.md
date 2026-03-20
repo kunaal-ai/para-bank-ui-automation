@@ -160,6 +160,38 @@ pytest -o addopts="" -p no:healix tests/ -v -s
 For strict CI behavior, omit `DEMO_MODE_BILLPAY` and
 `DEMO_MODE_SOFT_INTERNAL_ERROR`.
 
+### Reviewer / Hiring Manager Demo Mode
+
+To control AWS cost, the EC2 instance is kept **stopped by default** and started
+on demand for live walkthroughs.
+
+#### Live Demo Checklist (2-3 minutes)
+
+1. Start EC2 instance and verify public IP.
+2. Open application URL:
+   - `http://<EC2_PUBLIC_IP>:8080/parabank`
+3. Open observability stack:
+   - `http://<EC2_PUBLIC_IP>:3000` (Grafana)
+   - `http://<EC2_PUBLIC_IP>:9090` (Prometheus)
+4. Run an AWS-profile smoke command:
+
+```bash
+BASE_URL="http://<EC2_PUBLIC_IP>:8080/parabank" \
+EXECUTION_ENV=aws \
+ENABLE_HEALIX=0 \
+DEMO_MODE_BILLPAY=1 \
+DEMO_MODE_SOFT_INTERNAL_ERROR=1 \
+pytest -o addopts="" -p no:healix tests/test_account_overview.py -v -s
+```
+
+#### Evidence Included in Repository
+
+- Test execution summary (latest validated run): `63 passed, 14 xfailed`
+- Failure artifacts (screenshots/videos): `test-results/screenshots/`,
+  `test-results/videos/`
+- Full run logs: `logs/test_run.log`
+- Coverage mapping: `TRACEABILITY_MATRIX.md`
+
 ## 🏗️ Project Structure
 
 ```
