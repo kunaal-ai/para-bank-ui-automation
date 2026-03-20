@@ -4,14 +4,16 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
-Automated UI testing framework for ParaBank using Playwright, Python, and modern development practices.
+Automated UI testing framework for ParaBank using Playwright and pytest, with
+AWS-hosted execution support, observability hooks, and resilience controls for
+unstable backend behavior.
 
 ## 🚀 Features
 
 - **Cross-browser Testing**: Native support for Chromium, Firefox, and WebKit (Safari)
 - **Parallel & Multi-Engine Execution**: Run tests in parallel across different browser engines simultaneously in CI/CD
 - **Rich Reporting**: Allure reports, JUnit XML, and HTML coverage reports
-- **CI/CD Ready**: Pre-configured for GitHub Actions and Jenkins with Docker
+- **CI/CD Ready**: Pre-configured for GitHub Actions with Docker support
 - **Type Checking**: Full mypy integration for static type checking
 - **Code Quality**: Pre-commit hooks with Black, isort, and flake8
 - **Test Stability**: Automatic retries for flaky tests
@@ -136,6 +138,28 @@ Automated UI testing framework for ParaBank using Playwright, Python, and modern
    pytest --log-cli-level=DEBUG
    ```
 
+### AWS Validated Run Profile
+
+Use this profile for stable, repeatable runs against an EC2-hosted ParaBank
+instance:
+
+```bash
+BASE_URL="http://<EC2_PUBLIC_IP>:8080/parabank" \
+EXECUTION_ENV=aws \
+ENABLE_HEALIX=0 \
+DEMO_MODE_BILLPAY=1 \
+DEMO_MODE_SOFT_INTERNAL_ERROR=1 \
+pytest -o addopts="" -p no:healix tests/ -v -s
+```
+
+- `-o addopts=""` clears default pytest options from config for explicit runs.
+- `-p no:healix` guarantees Healix plugin is disabled.
+- `DEMO_MODE_*` flags keep suite execution actionable when ParaBank backend
+  intermittently serves internal-error pages on authenticated endpoints.
+
+For strict CI behavior, omit `DEMO_MODE_BILLPAY` and
+`DEMO_MODE_SOFT_INTERNAL_ERROR`.
+
 ## 🏗️ Project Structure
 
 ```
@@ -149,13 +173,14 @@ parabank-ui-automation/
 │   ├── format.sh          # Code formatting script
 │   ├── lint.sh            # Linting and code quality
 │   └── typecheck.sh       # Static type checking
-├── src/                   # Source code
-│   ├── pages/             # Page Object Models
-│   ├── utils/             # Helper functions
-│   └── conftest.py        # Pytest fixtures
+├── src/                   # Utilities and framework code
+│   └── utils/             # Helper functions and observability
 ├── tests/                 # Test cases
+│   ├── pages/             # Page objects (locators/actions)
+│   ├── flows/             # Business-level workflows
 │   ├── test_login.py      # Login tests
 │   └── test_bill_pay.py   # Bill payment tests
+├── conftest.py            # Shared pytest fixtures/hooks
 ├── .env.example          # Example environment variables
 ├── .pre-commit-config.yaml# Pre-commit hooks
 └── pyproject.toml        # Project configuration
@@ -242,7 +267,7 @@ def test_example(env_config):
     username = env_config.users["valid"]["username"]
 ```
 
-### Environment Variables (Legacy)
+### Environment Variables (Operational)
 
 For backward compatibility, you can still use `.env` file, but environment-based JSON configuration is recommended:
 
@@ -263,6 +288,11 @@ SLOW_MO=0  # milliseconds
 TIMEOUT=30000  # milliseconds
 PARALLEL_WORKERS=4
 RETRIES=2
+
+# Runtime behavior flags
+ENABLE_HEALIX=0
+DEMO_MODE_BILLPAY=1
+DEMO_MODE_SOFT_INTERNAL_ERROR=1
 ```
 
 ## 🛠️ Development
@@ -481,7 +511,6 @@ tail -n 100 logs/test_run.log
 - **Prometheus**: Metrics collection and storage
 - **Grafana**: Visualization and dashboards
 - **Pushgateway**: Temporary metrics storage for batch jobs
-- **Jenkins**: CI/CD pipeline
 
 ### Management Commands
 
@@ -502,7 +531,6 @@ python -m src.utils.monitoring check-docker
 ### Accessing Dashboards
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
-- **Jenkins**: http://localhost:8080
 
 ## 📊 Test Metrics & Monitoring
 

@@ -1,5 +1,8 @@
 # ParaBank UI Automation - Complete Guide
 
+> Last validated workflow: AWS-hosted execution profile (March 2026) with
+> resilience toggles for backend instability.
+
 ## 📖 Table of Contents
 1. [Project Overview](#-project-overview)
 2. [Project Structure](#-project-structure)
@@ -29,7 +32,6 @@ ParaBank UI Automation is a robust testing framework designed for automated UI t
    - **Prometheus**: Metrics collection and storage
    - **Grafana**: Visualization and dashboards
    - **Pushgateway**: Temporary metrics storage for batch jobs
-   - **Node Exporter**: System metrics collection
 
 3. **CI/CD Pipeline**
    - GitHub Actions for automated testing
@@ -43,8 +45,6 @@ graph TD
     A[Test Execution] -->|Generate Metrics| B[Pushgateway]
     B --> C[Prometheus]
     C --> D[Grafana]
-    E[System] -->|System Metrics| F[Node Exporter]
-    F --> C
     G[Developer] -->|Write Tests| A
     G -->|View Reports| D
 ```
@@ -320,6 +320,26 @@ pre-commit run --all-files --verbose
 
 ## 🧪 Testing
 
+### Recommended AWS Execution Profile
+
+For EC2-hosted runs where ParaBank may intermittently return internal-error
+pages, use:
+
+```bash
+BASE_URL="http://<EC2_PUBLIC_IP>:8080/parabank" \
+EXECUTION_ENV=aws \
+ENABLE_HEALIX=0 \
+DEMO_MODE_BILLPAY=1 \
+DEMO_MODE_SOFT_INTERNAL_ERROR=1 \
+pytest -o addopts="" -p no:healix tests/ -v -s
+```
+
+- `-o addopts=""` avoids inherited defaults when explicit runtime behavior is
+  required.
+- `-p no:healix` guarantees Healix plugin is off unless intentionally enabled.
+- `DEMO_MODE_*` flags keep long runs actionable by soft-handling known backend
+  instability.
+
 ### Run All Tests
 ```bash
 # Run all tests (uses dev environment by default)
@@ -409,7 +429,6 @@ python -m src.utils.monitoring check-docker
 ### Access Dashboards
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
-- **Jenkins**: http://localhost:8080
 
 ### Stop Monitoring
 ```bash
